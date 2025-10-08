@@ -1,5 +1,4 @@
 import type { DepositForm } from '@/types/interface'
-
 import { ethers } from 'ethers'
 
 const abi = [
@@ -20,6 +19,7 @@ export function deposit (formData: DepositForm, logFunc: (log: string) => void, 
   const autoUsdaiContract = new ethers.Contract(autoUsdaiAddress, abi, wallet)
   const amountInUSDC = ethers.utils.parseUnits(formData.amount.toString(), 6) // USDC 通常有 6 位小数
   let isStop = false
+  let timer: string | number | NodeJS.Timeout | null | undefined = null
   const task = async () => {
     // 1. 检查授权金额
     logFunc('检查授权金额...')
@@ -47,18 +47,23 @@ export function deposit (formData: DepositForm, logFunc: (log: string) => void, 
     if (isStop) {
       return
     }
-    // 监听区块，每个区块发送一次存款
-    provider.on('block', async blockNumber => {
-      logFunc(`新块 ${blockNumber}，尝试存款...`)
-
-      const depositTx = await autoUsdaiContract.deposit(amountInUSDC, {
+    const depositFunc = () => {
+      autoUsdaiContract.deposit(amountInUSDC, {
         nonce: nonce++, // 使用并递增 nonce
         gasLimit: formData.gasLimit,
         gasPrice: ethers.utils.parseUnits(formData.gasPrice.toString(), 'gwei'),
         value: 0, // 如果需要发送 ETH，可以在这里设置
+      }).then((depositTx: any) => {
+        logFunc(`存款交易已发送，交易哈希: ${depositTx.hash}`)
       })
-      logFunc(`存款交易已发送，交易哈希: ${depositTx.hash}`)
-    })
+    }
+    depositFunc()
+    timer = setInterval(() => {
+      if (isStop) {
+        return
+      }
+      depositFunc()
+    }, 300)
   }
   task().catch(error => {
     errLog(error?.message || '发生错误')
@@ -66,7 +71,7 @@ export function deposit (formData: DepositForm, logFunc: (log: string) => void, 
 
   return () => {
     isStop = true
-    provider.removeAllListeners('block')
-    logFunc('已停止监听区块，存款终止。')
+    timer && clearInterval(timer)
+    logFunc('已停止发送，存款终止。')
   }
 }

@@ -82,7 +82,7 @@ export default defineConfig({
       '.vue',
     ],
   },
-  base: '/tools-page/',
+  // base: '/tools-page/',
   server: {
     port: 3000,
   },

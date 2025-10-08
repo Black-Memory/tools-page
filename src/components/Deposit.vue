@@ -1,5 +1,6 @@
 <template>
   <div class="container">
+    <h1>V1.0</h1>
     <v-form style="width: 100%;">
       <v-text-field v-model="formData.rpcUrl" label="RPC" />
       <v-text-field
