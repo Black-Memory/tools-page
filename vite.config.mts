@@ -82,8 +82,23 @@ export default defineConfig({
       '.vue',
     ],
   },
-  base: '/tools-page/',
+  // base: '/tools-page/',
   server: {
-    port: 3000,
+    port: 8080,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+        // 如果后台 API 路径不包含 /api 前缀，可以重写路径
+        rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      '/socket': {
+        target: 'ws://localhost:3000',
+        changeOrigin: true,
+        ws: true,
+      }
+    },
+
   },
 })
