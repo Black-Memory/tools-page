@@ -6,7 +6,6 @@ export class SocketService {
 
   subKeys = new Map<string, { key: string }>()
 
-
   constructor(url: string = '/') {
     this.url = url
   }
@@ -45,19 +44,28 @@ export class SocketService {
 
   async batchSubscribe(keys: string[], callObj: { (key: string): (...args: any[]) => void }) {
 
+    if (!this.socket) await wait(() => this.socket != null && this.socket.connected, 100, 5000)
+
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i] as string;
       this.subKeys.set(key, { key })
       this.on(key, callObj(key))
     }
+    //需要处理订阅失败的情况 TODO
 
     return this.emitWithCallback('subscribe', keys)
   }
 
 
   async subscribe(key: string, callFunc: (...args: any[]) => void) {
+
+    if (!this.socket) await wait(() => this.socket != null && this.socket.connected, 100, 5000)
+
+
     this.subKeys.set(key, { key })
     this.on(key, callFunc)
+
+    //需要处理订阅失败的情况 TODO
     return this.emitWithCallback('subscribe', [key])
   }
 
@@ -147,5 +155,22 @@ export class SocketService {
   }
 }
 
-// 创建全局实例
+// 等待某个条件成立
+async function wait(func: () => boolean, interval: number, timeout: number) {
+  const start = Date.now()
+  return new Promise<void>((resolve, reject) => {
+    const timer = setInterval(() => {
+      if (func()) {
+        clearInterval(timer)
+        resolve()
+      } else if (Date.now() - start > timeout) {
+        clearInterval(timer)
+        reject(new Error('等待超时'))
+      }
+    }, interval)
+  })
+}
+
+
+
 export const socketService = new SocketService()

@@ -7,6 +7,14 @@
 
       <v-spacer></v-spacer>
 
+      <!-- Socket 状态指示器 -->
+      <v-tooltip :text="socketStatusText" location="bottom">
+        <template v-slot:activator="{ props }">
+          <div v-bind="props" class="socket-status-dot" :class="socketStatusColor">
+          </div>
+        </template>
+      </v-tooltip>
+
       <!-- 主题切换按钮 -->
       <v-btn
         icon
@@ -63,22 +71,64 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useTheme } from 'vuetify'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import AppSidebar from '@/components/AppSidebar.vue'
+import { socketService } from '@/utils/socket'
 
 const sidebarRef = ref<InstanceType<typeof AppSidebar> | null>(null)
 const theme = useTheme()
 const router = useRouter()
 const userStore = useUserStore()
 
+// Socket 状态管理
+const socketConnected = ref(false)
+
+// Socket 事件处理函数
+const onSocketConnect = () => {
+  socketConnected.value = true
+}
+
+const onSocketDisconnect = () => {
+  socketConnected.value = false
+}
+
+// Socket 状态计算属性
+const socketStatusColor = computed(() => {
+  return socketConnected.value ? 'success' : 'error'
+})
+
+const socketStatusText = computed(() => {
+  return socketConnected.value ? 'WebSocket已连接' : 'WebSocket未连接'
+})
+
+
+
 // 从localStorage加载保存的主题
-onMounted(() => {
+onMounted(async () => {
   const savedTheme = localStorage.getItem('app-theme')
   if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
     theme.change(savedTheme)
+  }
+
+  // 初始化Socket连接状态
+  socketConnected.value = socketService.isConnected()
+
+  // 自动连接Socket
+  try {
+    await socketService.connect()
+    console.log('Socket自动连接成功')
+
+    // 连接成功后设置事件监听
+    socketService.on('connect', onSocketConnect)
+    socketService.on('disconnect', onSocketDisconnect)
+
+    // 更新连接状态
+    socketConnected.value = socketService.isConnected()
+  } catch (error) {
+    console.error('Socket自动连接失败:', error)
   }
 })
 
@@ -103,6 +153,13 @@ const handleLogout = async () => {
   // 跳转到登录页面
   router.push('/login')
 }
+
+// 组件销毁时清理
+onUnmounted(() => {
+  // 移除Socket事件监听
+  socketService.off('connect', onSocketConnect)
+  socketService.off('disconnect', onSocketDisconnect)
+})
 </script>
 
 <style scoped>
@@ -129,5 +186,24 @@ const handleLogout = async () => {
 .logout-text {
   color: rgb(var(--v-theme-error)) !important;
   font-weight: 500;
+}
+
+/* Socket状态指示点样式 */
+.socket-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 16px;
+  transition: all 0.3s ease;
+}
+
+.socket-status-dot.success {
+  background-color: rgb(var(--v-theme-success));
+  box-shadow: 0 0 6px rgba(var(--v-theme-success), 0.6);
+}
+
+.socket-status-dot.error {
+  background-color: rgb(var(--v-theme-error));
+  box-shadow: 0 0 6px rgba(var(--v-theme-error), 0.6);
 }
 </style>

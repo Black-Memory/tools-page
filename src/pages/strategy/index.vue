@@ -8,7 +8,7 @@
             <v-icon class="mr-2" color="primary">mdi-strategy</v-icon>
             <h2 class="text-h5 font-weight-bold">策略面板</h2>
           </div>
-          <v-btn v-if="strategies.length > 0" color="primary" @click="showAddDialog = true" prepend-icon="mdi-plus">
+          <v-btn v-if="strategies.length > 0" color="primary" @click="addNewStrategy" prepend-icon="mdi-plus">
             添加策略
           </v-btn>
         </div>
@@ -25,7 +25,7 @@
         <p class="text-body-1 mb-6 text-medium-emphasis">
           开始创建您的第一个交易策略
         </p>
-        <v-btn color="primary" size="large" @click="showAddDialog = true" prepend-icon="mdi-plus">
+        <v-btn color="primary" size="large" @click="addNewStrategy" prepend-icon="mdi-plus">
           添加新策略
         </v-btn>
       </v-card>
@@ -66,78 +66,10 @@
       </div>
     </div>
 
-    <!-- 添加策略对话框 -->
-    <v-dialog v-model="showAddDialog" max-width="600" persistent :fullscreen="$vuetify.display.xs">
-      <v-card>
-        <v-card-title class="text-h5">
-          {{ editingStrategy ? '编辑策略' : '添加新策略' }}
-        </v-card-title>
-
-        <v-card-text>
-          <v-form ref="form" v-model="valid">
-            <v-text-field v-model="strategyForm.name" label="策略名称" :rules="nameRules" required variant="outlined"
-              class="mb-3" />
-
-            <v-select v-model="strategyForm.symbol" :items="symbolOptions" label="交易对" :rules="symbolRules" required
-              variant="outlined" class="mb-3" />
-
-            <v-select v-model="strategyForm.period" :items="periodOptions" label="时间周期" :rules="periodRules" required
-              variant="outlined" class="mb-3" />
-
-            <v-select v-model="strategyForm.strategyType" :items="strategyTypeOptions" item-title="title"
-              item-value="value" label="策略类型" :rules="strategyTypeRules" required variant="outlined" class="mb-3" />
-
-            <!-- 策略配置参数 - 动态生成 -->
-            <div v-if="strategyForm.strategyType && configFieldGroups.length > 0" class="mb-3">
-              <v-row v-for="(group, groupIndex) in configFieldGroups" :key="groupIndex" class="mb-2">
-                <v-col v-for="[fieldKey, fieldConfig] in group" :key="fieldKey" cols="6">
-                  <!-- 数字类型输入 -->
-                  <v-text-field v-if="fieldConfig.type === 'number'" v-model.number="strategyForm.config[fieldKey]"
-                    :label="fieldConfig.label" type="number" :min="fieldConfig.min" :max="fieldConfig.max"
-                    :required="fieldConfig.required" variant="outlined" :rules="getFieldRules(fieldConfig)" />
-
-                  <!-- 字符串类型输入 -->
-                  <v-text-field v-else-if="fieldConfig.type === 'string'" v-model="strategyForm.config[fieldKey]"
-                    :label="fieldConfig.label" :required="fieldConfig.required" variant="outlined"
-                    :rules="getFieldRules(fieldConfig)" />
-
-                  <!-- 选择类型输入 -->
-                  <v-select v-else-if="fieldConfig.type === 'select'" v-model="strategyForm.config[fieldKey]"
-                    :items="fieldConfig.options || []" item-title="label" item-value="value" :label="fieldConfig.label"
-                    :required="fieldConfig.required" variant="outlined" :rules="getFieldRules(fieldConfig)" />
-
-                  <!-- 布尔类型输入 -->
-                  <v-checkbox v-else-if="fieldConfig.type === 'boolean'" v-model="strategyForm.config[fieldKey]"
-                    :label="fieldConfig.label" :required="fieldConfig.required" />
-                </v-col>
-              </v-row>
-            </div>
-
-            <v-textarea v-model="strategyForm.description" label="策略描述（可选）" variant="outlined" rows="3" class="mb-3" />
-
-            <!-- 开启运行选项 -->
-            <v-checkbox v-model="strategyForm.enableOnCreate" label="开启运行" color="primary" class="mb-3" />
-
-            <!-- <v-text-field
-              v-model.number="strategyForm.amount"
-              label="交易金额（可选）"
-              type="number"
-              variant="outlined"
-              prefix="$"
-              class="mb-3"
-            /> -->
-          </v-form>
-        </v-card-text>
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="cancelAdd">取消</v-btn>
-          <v-btn color="primary" :disabled="!valid" @click="saveStrategy">
-            {{ editingStrategy ? '更新' : '添加' }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <!-- 策略编辑对话框 -->
+    <StrategyEditDialog v-model="showEditDialog" :strategy="editingStrategy" :strategy-infos="strategyInfos"
+      :symbol-options="symbolOptions" :period-options="periodOptions" :loading="false" @save="handleStrategySave"
+      @cancel="handleStrategyCancel" />
 
     <!-- 删除确认对话框 -->
     <v-dialog v-model="showDeleteDialog" max-width="400">
@@ -173,11 +105,13 @@
 
 <script lang="ts" setup>
 import type { Strategy, StrategyInfo } from '@/types/interface'
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { StrategyAPI } from '@/api/strategy'
 import type { CreateStrategyRequest } from '@/types/api'
 import { socketService } from '@/utils/socket'
 import { useUserStore } from '@/stores/user'
+import StrategyEditDialog from '@/components/StrategyEditDialog.vue'
+import { clearChartData } from '@/utils/chartUtil'
 
 
 
@@ -188,33 +122,12 @@ const userStore = useUserStore()
 
 // 响应式数据
 const strategies = ref<Strategy[]>([])
-const showAddDialog = ref(false)
+const showEditDialog = ref(false)
 const showDeleteDialog = ref(false)
 const editingStrategy = ref<Strategy | null>(null)
 const deletingStrategy = ref<Strategy | null>(null)
-const form = ref()
-const valid = ref(false)
 // 折叠状态管理
 const collapsedSections = ref<Set<string>>(new Set())
-
-// 表单数据
-const strategyForm = ref<{
-  name: string
-  symbol: string
-  period: string
-  strategyType: string
-  description: string
-  config: Record<string, any>
-  enableOnCreate: boolean
-}>({
-  name: '',
-  symbol: '',
-  period: '',
-  strategyType: '',
-  description: '',
-  config: {},
-  enableOnCreate: true
-})
 
 // 选项数据 - 从 API 获取
 const symbolOptions = ref<string[]>([])
@@ -249,29 +162,7 @@ const showErrorMessage = (message: string) => {
   showOperationErrorSnackbar.value = true
 }
 
-// 计算属性 - 策略类型选项
-const strategyTypeOptions = computed(() => {
-  return strategyInfos.value.map(info => ({
-    title: info.desc,
-    value: info.type
-  }))
-})
 
-// 计算属性 - 当前策略的配置信息
-const currentStrategyConfig = computed(() => {
-  const selectedStrategy = strategyInfos.value.find(info => info.type === strategyForm.value.strategyType)
-  return selectedStrategy?.config || {}
-})
-
-// 计算属性 - 配置字段数组，每两个一组
-const configFieldGroups = computed(() => {
-  const fields = Object.entries(currentStrategyConfig.value)
-  const groups = []
-  for (let i = 0; i < fields.length; i += 2) {
-    groups.push(fields.slice(i, i + 2))
-  }
-  return groups
-})
 
 // 加载策略配置信息
 const loadStrategyConfigs = async () => {
@@ -290,48 +181,7 @@ const loadStrategyConfigs = async () => {
   }
 }
 
-// 表单验证规则
-const nameRules = [
-  (v: string) => !!v || '策略名称不能为空',
-  (v: string) => v.length >= 2 || '策略名称至少2个字符'
-]
 
-const symbolRules = [
-  (v: string) => !!v || '请选择交易对'
-]
-
-const periodRules = [
-  (v: string) => !!v || '请选择时间周期'
-]
-
-const strategyTypeRules = [
-  (v: string) => !!v || '请选择策略类型'
-]
-
-// 动态字段验证规则生成函数
-const getFieldRules = (fieldConfig: any) => {
-  const rules = []
-
-  if (fieldConfig.required) {
-    rules.push((v: any) => !!v || `${fieldConfig.label}不能为空`)
-  }
-
-  if (fieldConfig.type === 'number') {
-    if (fieldConfig.min !== undefined) {
-      rules.push((v: number) => v >= fieldConfig.min || `${fieldConfig.label}不能小于${fieldConfig.min}`)
-    }
-    if (fieldConfig.max !== undefined) {
-      rules.push((v: number) => v <= fieldConfig.max || `${fieldConfig.label}不能大于${fieldConfig.max}`)
-    }
-  }
-
-  return rules
-}
-
-// const amountRules = [
-//   (v: number) => !!v || '交易金额不能为空',
-//   (v: number) => v > 0 || '交易金额必须大于0'
-// ]
 
 // 计算属性 - 按symbol分组策略
 const groupedStrategies = computed(() => {
@@ -350,16 +200,12 @@ const groupedStrategies = computed(() => {
 // 方法
 const editStrategy = (strategy: Strategy) => {
   editingStrategy.value = strategy
-  strategyForm.value = {
-    name: strategy.name,
-    symbol: strategy.symbol,
-    period: strategy.period,
-    strategyType: strategy.strategyType,
-    description: strategy.description || '',
-    config: { ...strategy.strategyConfig },
-    enableOnCreate: strategy.status === 'running'
-  }
-  showAddDialog.value = true
+  showEditDialog.value = true
+}
+
+const addNewStrategy = () => {
+  editingStrategy.value = null
+  showEditDialog.value = true
 }
 
 const deleteStrategy = (strategy: Strategy) => {
@@ -392,47 +238,40 @@ const toggleStrategyStatus = async (strategy: Strategy) => {
   }
 }
 
-const saveStrategy = async () => {
-  if (!valid.value) return
-
+const handleStrategySave = async (formData: any) => {
   try {
     if (editingStrategy.value) {
       // 编辑现有策略
-      const index = strategies.value.findIndex(s => s.id === editingStrategy.value!.id)
-      if (index !== -1) {
-        const updatedStrategy: Partial<Strategy> = {
-          name: strategyForm.value.name,
-          symbol: strategyForm.value.symbol,
-          period: strategyForm.value.period,
-          strategyType: strategyForm.value.strategyType,
-          description: strategyForm.value.description,
-          strategyConfig: { ...strategyForm.value.config },
-          status: strategyForm.value.enableOnCreate ? 'running' : 'stopped',
-        }
+      const updateData = {
+        name: formData.name,
+        symbol: formData.symbol,
+        period: formData.period,
+        strategyType: formData.strategyType,
+        strategyConfig: { ...formData.config },
+        description: formData.description,
+      }
 
-        const response = await StrategyAPI.updateStrategy(editingStrategy.value.id, updatedStrategy)
-        if (response.code === 0 && response.data) {
-          // 更新本地数据
-          strategies.value[index] = {
-            ...editingStrategy.value,
-            ...response.data
-          }
-          showSuccessMessage('策略更新成功')
-          cancelAdd()
-        } else {
-          showErrorMessage(response.message || '更新策略失败')
+      const response = await StrategyAPI.updateStrategy(editingStrategy.value.id, updateData)
+      if (response.code === 0) {
+        const strategyToUpdate = strategies.value.find(s => s.id === editingStrategy.value!.id)
+        if (strategyToUpdate) {
+          Object.assign(strategyToUpdate, updateData)
         }
+        showSuccessMessage('策略更新成功')
+        handleStrategyCancel()
+      } else {
+        showErrorMessage(response.message || '更新策略失败')
       }
     } else {
       // 添加新策略
       const newStrategy: CreateStrategyRequest = {
-        name: strategyForm.value.name,
-        symbol: strategyForm.value.symbol,
-        period: strategyForm.value.period,
-        strategyType: strategyForm.value.strategyType,
-        strategyConfig: { ...strategyForm.value.config },
-        description: strategyForm.value.description,
-        status: strategyForm.value.enableOnCreate ? 'running' : 'stopped',
+        name: formData.name,
+        symbol: formData.symbol,
+        period: formData.period,
+        strategyType: formData.strategyType,
+        strategyConfig: { ...formData.config },
+        description: formData.description,
+        status: formData.enableOnCreate ? 'running' : 'stopped',
         direction: 'none',
       }
 
@@ -444,7 +283,7 @@ const saveStrategy = async () => {
           createdAt: new Date().toISOString()
         } as Strategy)
         showSuccessMessage('策略创建成功')
-        cancelAdd()
+        handleStrategyCancel()
       } else {
         showErrorMessage(response.message || '创建策略失败')
       }
@@ -466,6 +305,7 @@ const confirmDelete = () => {
           console.error('删除策略失败:', response.message)
         }
         showDeleteDialog.value = false
+        clearChartData(deletingStrategy.value!.id)
         deletingStrategy.value = null
       }).catch(error => {
         console.error('删除策略异常:', error)
@@ -475,21 +315,9 @@ const confirmDelete = () => {
 
 }
 
-const cancelAdd = () => {
-  showAddDialog.value = false
+const handleStrategyCancel = () => {
+  showEditDialog.value = false
   editingStrategy.value = null
-  strategyForm.value = {
-    name: '',
-    symbol: '',
-    period: '',
-    strategyType: '',
-    description: '',
-    config: {},
-    enableOnCreate: false
-  }
-  if (form.value) {
-    form.value.reset()
-  }
 }
 
 // 折叠控制方法
@@ -501,32 +329,12 @@ const toggleSection = (symbol: string) => {
   }
 }
 
-// 策略类型变化时初始化配置字段
-watch(
-  () => strategyForm.value.strategyType,
-  (newType) => {
-    if (newType) {
-      const selectedStrategy = strategyInfos.value.find(info => info.type === newType)
-      if (selectedStrategy) {
-        // 初始化配置字段的默认值
-        const defaultConfig: Record<string, any> = {}
-        Object.entries(selectedStrategy.config).forEach(([key, fieldConfig]) => {
-          defaultConfig[key] = fieldConfig.defaultValue
-        })
-        strategyForm.value.config = defaultConfig
-      }
-    } else {
-      strategyForm.value.config = {}
-    }
-  }
-)
+
 
 // 初始化数据
 onMounted(async () => {
-  //加载socket连接
-  await socketService.connect()
   //订阅策略更新消息
-  socketService.subscribe(`strategy:update:${userStore.userId}`, (data: Partial<Strategy>) => {
+  StrategyAPI.subscribeStrategyUpdates(userStore.userId as string, (data: Partial<Strategy>) => {
     console.log('收到策略更新通知:', data)
     // 可以根据需要刷新策略列表
     let id = data.id;
@@ -535,7 +343,8 @@ onMounted(async () => {
     if (strategy) {
       strategy.direction = data.direction || strategy.direction
     }
-  })
+  });
+
 
   // 先加载策略配置
   await loadStrategyConfigs()
@@ -545,7 +354,7 @@ onMounted(async () => {
 
 
 onUnmounted(() => {
-  socketService.unsubscribe([`strategy:update:${userStore.userId}`])
+  StrategyAPI.unsubscribeStrategyUpdates(userStore.userId as string);
 })
 
 // 加载演示数据

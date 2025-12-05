@@ -146,7 +146,7 @@
         color="white"
         variant="outlined"
         size="small"
-        @click="viewDetails"
+        @click.stop="viewDetails"
       >
         详情
       </v-btn>
@@ -157,6 +157,10 @@
 <script lang="ts" setup>
 import type { Strategy, StrategyInfo } from '@/types/interface';
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+
+// 路由
+const router = useRouter()
 
 
 
@@ -321,8 +325,8 @@ const toggleStatus = () => {
 }
 
 const viewDetails = () => {
-  // 这里可以跳转到详情页面或打开详情对话框
-  console.log('View strategy details:', props.strategy.id)
+  // 跳转到策略详情页面
+  router.push(`/strategy/${props.strategy.id}`)
 }
 </script>
 

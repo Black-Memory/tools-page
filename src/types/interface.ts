@@ -4,10 +4,14 @@ export interface DepositForm {
   amount: number
   gasLimit: number
   gasPrice: number
-  fastGasPrice:number
+  fastGasPrice: number
 
 }
 
+
+export interface SymbolInfo {
+  pricePrecision: number
+}
 
 
 export interface Strategy {
@@ -50,6 +54,53 @@ export interface StrategyInfo {
 
 export interface StrategyConfigs {
   symbols: string[];
+  symbolsInfo: Record<string, { pricePrecision: number, [key: string]: any }>; // symbol 相关的额外信息
   periods: string[];
   strategyInfos: StrategyInfo[];
+}
+
+
+export interface BacktestParams {
+  strategyId: string, //策略ID
+  fromTime: string  //开始时间
+  toTime: string  //结束时间
+  amount: number  //回测金额
+}
+
+/**
+ * 回测记录
+ */
+export interface BacktestRecord {
+  time: string
+  symbol: string
+ direction: 'openLong' | 'openShort' | 'closeLong' | 'closeShort'
+  price: number
+  quantity: number
+  realizedPnl: number
+  profitRate: number
+}
+
+
+export interface BacktestUpdate {
+    type: 'progress' | 'completed' | 'error',
+}
+
+
+export interface BacktestProgressUpdate extends BacktestUpdate {
+    type: 'progress',
+    record: BacktestRecord,
+}
+
+export interface BacktestCompletedUpdate extends BacktestUpdate {
+    type: 'completed',
+    totalTrades: number,
+    totalReturn: number,
+    winRate: number,
+    maxDrawdown: number,
+    profitCurve: Array<{ time: number, value: number }>
+}
+
+export interface BacktestErrorUpdate extends BacktestUpdate {
+    type: 'error',
+    message: string,
 }

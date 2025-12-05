@@ -1,5 +1,6 @@
 import type { ApiResponse } from '@/types/api'
 import { ErrorCode } from '@/constants/error-codes'
+import qs from 'qs'
 
 // 请求配置接口
 interface RequestConfig extends RequestInit {
@@ -138,7 +139,11 @@ class RequestUtil {
   }
 
   // GET 请求
-  async get<T>(url: string, config?: RequestConfig): Promise<ApiResponse<T>> {
+  async get<T>(url: string,data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
+    if(data){
+        const queryString = qs.stringify(data, { skipNulls: true });
+        url += `?${queryString}`;
+    }
     return this.request<T>('GET', url, undefined, config)
   }
 

@@ -1,5 +1,5 @@
 import type { ErrorCode } from "@/constants/error-codes"
-import type { Strategy } from "./interface"
+import type { BacktestParams, Strategy } from "./interface"
 
 export interface ApiResponse<T = any> {
   code: ErrorCode
@@ -16,14 +16,14 @@ export interface LoginRequest {
 export interface LoginResponse {
   token: string
   user: {
-    _id: number
+    _id: string
     username: string
     email?: string
   }
 }
 
 export interface UserInfo {
-  _id: number
+  _id: string
   username: string
   email?: string
 }
@@ -41,3 +41,7 @@ export interface UpdateStrategyRequest extends Partial<Omit<Strategy, 'id' | 'cr
 
 
 
+
+export interface CreateBacktestDto extends BacktestParams {
+
+}

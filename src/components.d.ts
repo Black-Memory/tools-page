@@ -9,9 +9,12 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AppSidebar: typeof import('./components/AppSidebar.vue')['default']
+    BacktestContent: typeof import('./components/BacktestContent.vue')['default']
     Deposit: typeof import('./components/Deposit.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     StrategyCard: typeof import('./components/StrategyCard.vue')['default']
+    StrategyEditDialog: typeof import('./components/StrategyEditDialog.vue')['default']
+    TradingViewChart: typeof import('./components/TradingViewChart.vue')['default']
   }
 }

@@ -4,7 +4,7 @@ import type { LoginResponse } from '@/types/api'
 import { AuthAPI } from '@/api/auth'
 
 interface UserInfo {
-  _id: number
+  _id: string
   username: string
   email?: string
 }
