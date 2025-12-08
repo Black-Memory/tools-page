@@ -202,15 +202,24 @@ const createTradingViewChart = async (): Promise<void> => {
           inputs: [
             { id: "in_1", name: "Symbol", type: "symbol", defval: "MY_EQUITY" }
           ],
-          plots: [{ id: "plot_0", type: "line" }],
+          plots: [{ id: "plot_0", type: "line" }, { id: "plot_1", type: "line" }],
           defaults: {
             styles: {
-              plot_0: { linestyle: 0, linewidth: 2, plottype: 0, color: "#2196F3" }
+              plot_0: { linestyle: 0, linewidth: 2, plottype: 0, color: "#2196F3" },
+              plot_1: {
+                plottype: 3,        // 3 = Circles (圆点)
+                linestyle: 0,
+                linewidth: 3,       // 控制圆点大小
+                color: "#ff5252"    // 可以设置不同的颜色以区分
+              }
             }
           },
           styles: {
             plot_0: {
               title: 'Equity value',
+            },
+            plot_1: {
+              title: 'Equity points',
             }
           },
           format: {
@@ -235,7 +244,7 @@ const createTradingViewChart = async (): Promise<void> => {
             context.select_sym(1);
 
             const equityValue = PineJS.Std.close(this._context);
-            return [equityValue];
+            return [equityValue,equityValue];
           };
         }
       }
@@ -342,6 +351,7 @@ const removeProfitCurveStudy = () => {
     const chart = tvWidget.value.chart()
     chart.removeEntity(profitCurveStudy.value)
     profitCurveStudy.value = null
+    initChart()
     console.log('收益曲线指标已移除')
   } catch (error) {
     console.error('移除收益曲线指标失败:', error)

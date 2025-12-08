@@ -74,8 +74,8 @@ export class CustomDatafeed {
     setTimeout(() => onSymbolResolvedCallback(symbolStub), 0)
   }
 
-
-
+  // 记录已加载的最早K线时间
+  oldestBarTime: number | null = null
 
   async getBars(
     symbolInfo: any,
@@ -84,7 +84,6 @@ export class CustomDatafeed {
     onResult: (bars: any[], meta: any) => void,
     onError: (error: string) => void
   ): Promise<void> {
-
     // 验证输入参数
     if (!periodParams.from || !periodParams.to || isNaN(periodParams.from) || isNaN(periodParams.to)) {
       console.error('Invalid timestamp parameters:', periodParams)
@@ -104,14 +103,20 @@ export class CustomDatafeed {
         }
 
         // 过滤时间范围内的数据
-        const startTime = periodParams.from * 1000
+        // const startTime = periodParams.from * 1000
         const endTime = periodParams.to * 1000
-        const filteredBars = equityData.filter((bar: any) =>
-          bar.time >= startTime && bar.time < endTime
-        )
+
+        // console.log("提取数据MY_EQUITY 时间范围:", new Date(startTime).toLocaleString(), "至", new Date(endTime).toLocaleString( ));
+
+
+        let filteredBars = equityData.filter((bar: any) => {
+          // return bar.time >= startTime && bar.time <= endTime
+          return bar.time <= endTime
+        })
+        // filteredBars = Array.from(filteredBars).sort((a: any, b: any) => a.time - b.time)
 
         const historyMetadata = {
-          noData: equityData[0].time > endTime || equityData[equityData.length - 1].time < startTime
+          noData: true
         }
         setTimeout(() => onResult(filteredBars, historyMetadata), 0)
         return
@@ -127,15 +132,18 @@ export class CustomDatafeed {
       // 调用真实API获取K线数据
       const mappedPeriod = this.mapResolutionToPeriod(resolution)
 
+      // console.log(` 时间范围: ${new Date(periodParams.from * 1000).toLocaleString()} - ${new Date(periodParams.to * 1000).toLocaleString()} 数量:${periodParams.countBack}`);
+
       const response = await StrategyAPI.getKline({
         symbol: symbolInfo.name,
         period: mappedPeriod,
-        endTime: periodParams.to * 1000,
+        endTime: this.oldestBarTime || periodParams.to * 1000,
         limit: 1000
       })
 
       if (response.code === 0 && response.data && response.data.length > 0) {
         const bar = response.data;
+        this.oldestBarTime = bar[0].time
         // 过滤时间范围内的数据并转换格式
         const historyMetadata = {
           noData: bar.length === 0
