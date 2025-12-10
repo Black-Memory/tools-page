@@ -41,6 +41,14 @@
             <div class="d-flex align-center justify-space-between">
               <h3 class="text-h6 font-weight-bold">{{ symbol }}</h3>
               <div class="d-flex align-center">
+                <v-btn size="small" color="success" variant="text" class="mr-2"
+                  @click.stop="toggleGroupStatus(String(symbol), 'running')">
+                  全部开启
+                </v-btn>
+                <v-btn size="small" color="error" variant="text" class="mr-2"
+                  @click.stop="toggleGroupStatus(String(symbol), 'stopped')">
+                  全部停止
+                </v-btn>
                 <v-chip size="small" color="primary" variant="outlined" class="mr-3">
                   {{ symbolStrategies.length }} 个策略
                 </v-chip>
@@ -185,9 +193,33 @@ const loadStrategyConfigs = async () => {
 
 // 计算属性 - 按symbol分组策略
 const groupedStrategies = computed(() => {
+  // 1. 先对所有策略进行排序
+  // 排序规则：
+  // 1. 运行中的策略优先
+  // 2. 同状态下按 Symbol 字母序排序
+  // 3. 同 Symbol 下按策略名称排序
+  const sortedStrategies = [...strategies.value].sort((a, b) => {
+    // 权重1: 运行状态 (running > stopped)
+    const aRunning = a.status === 'running'
+    const bRunning = b.status === 'running'
+    if (aRunning && !bRunning) return -1
+    if (!aRunning && bRunning) return 1
+
+    // 权重2: Symbol 字母序
+    const symbolCompare = a.symbol.localeCompare(b.symbol)
+    if (symbolCompare !== 0) return symbolCompare
+
+    // 权重3: 策略名称
+    return (a.name || '').localeCompare(b.name || '')
+  })
+
+  // 2. 按顺序提取分组
+  // 由于 sortedStrategies 已经排好序：
+  // - 包含 running 策略的 symbol 会先出现，从而先创建分组 key
+  // - 同一个 symbol 内，running 策略排在前面，所以 push 进去也是有序的
   const grouped: { [key: string]: Strategy[] } = {}
 
-  strategies.value.forEach(strategy => {
+  sortedStrategies.forEach(strategy => {
     if (!grouped[strategy.symbol]) {
       grouped[strategy.symbol] = []
     }
@@ -235,6 +267,44 @@ const toggleStrategyStatus = async (strategy: Strategy) => {
   } catch (error) {
     console.error('更新策略状态异常:', error)
     showErrorMessage('网络错误，无法更新策略状态')
+  }
+}
+
+const toggleGroupStatus = async (symbol: string, targetStatus: 'running' | 'stopped') => {
+  const strategiesToUpdate = groupedStrategies.value[symbol]!.filter(s => s.status !== targetStatus)
+
+  if (strategiesToUpdate.length === 0) {
+    showSuccessMessage(`该组策略已全部处于${targetStatus === 'running' ? '运行' : '停止'}状态`)
+    return
+  }
+
+  let successCount = 0
+  let failCount = 0
+
+  // 并行执行更新
+  await Promise.all(strategiesToUpdate.map(async (strategy) => {
+    try {
+      const response = await StrategyAPI.updateStrategy(strategy.id, { status: targetStatus })
+      if (response.code === 0) {
+        // 更新本地数据
+        const strategyToUpdate = strategies.value.find(s => s.id === strategy.id)
+        if (strategyToUpdate) {
+          strategyToUpdate.status = targetStatus
+        }
+        successCount++
+      } else {
+        failCount++
+      }
+    } catch (error) {
+      console.error(`更新策略 ${strategy.name} 状态异常:`, error)
+      failCount++
+    }
+  }))
+
+  if (failCount === 0) {
+    showSuccessMessage(`已成功${targetStatus === 'running' ? '开启' : '停止'} ${successCount} 个策略`)
+  } else {
+    showErrorMessage(`操作完成: 成功 ${successCount} 个, 失败 ${failCount} 个`)
   }
 }
 
