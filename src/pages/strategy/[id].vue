@@ -64,6 +64,10 @@
 
           <!-- 右侧：操作按钮 -->
           <div class="d-flex align-center ga-2 strategy-actions">
+            <v-btn color="primary" variant="elevated" @click="showEditDialog = true" class="mr-2">
+              <v-icon start>mdi-pencil</v-icon>
+              编辑策略
+            </v-btn>
             <v-btn :color="getActionButtonColor(strategy?.status)" variant="elevated" @click="toggleStrategyStatus"
               class="mr-2">
               <v-icon start>
@@ -156,6 +160,11 @@
       </v-card>
     </div>
 
+    <!-- 策略编辑对话框 -->
+    <StrategyEditDialog v-model="showEditDialog" :strategy="strategy" :strategy-infos="strategyInfos"
+      :symbol-options="symbolOptions" :period-options="periodOptions" :loading="false" @save="handleStrategySave"
+      @cancel="showEditDialog = false" />
+
     <!-- Toast 提示 -->
     <v-snackbar v-model="showSuccessSnackbar" color="success" timeout="3000" location="top">
       {{ operationMessage }}
@@ -174,6 +183,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { StrategyAPI } from '@/api/strategy'
 import BacktestContent from '@/components/BacktestContent.vue'
 import TradingViewChart from '@/components/TradingViewChart.vue'
+import StrategyEditDialog from '@/components/StrategyEditDialog.vue'
 
 // 路由相关
 const router = useRouter()
@@ -183,6 +193,9 @@ const strategyId = computed(() => (route.params as { id?: string }).id || '')
 // 响应式数据
 const strategy = ref<Strategy | null>(null)
 const strategyInfos = ref<StrategyInfo[]>([])
+const symbolOptions = ref<string[]>([])
+const periodOptions = ref<string[]>([])
+const showEditDialog = ref(false)
 const loading = ref(true)
 const error = ref<string>('')
 // 操作提示状态
@@ -278,6 +291,8 @@ const loadStrategyDetail = async () => {
 
     if (configResponse.code === 0 && configResponse.data) {
       strategyInfos.value = configResponse.data.strategyInfos
+      symbolOptions.value = configResponse.data.symbols
+      periodOptions.value = configResponse.data.periods
     }
 
   } catch (err) {
@@ -408,50 +423,54 @@ const runBacktest = async (params: BacktestParams) => {
       strategyId: strategy.value.id,
       params
     })
-    taskId.value = ""
+    taskId.value = self.crypto.randomUUID()
+    //提前订阅
+    //订阅id事件
+    StrategyAPI.subsscribeBacktestUpdates(taskId.value as string, (data: BacktestUpdate) => {
+      console.log('收到回测更新:', data)
+      if (data.type == "progress") {
+        //新增回测记录
+        backtestData.value.unshift((data as BacktestProgressUpdate).record)
 
-    StrategyAPI.backtest({ ...params, strategyId: strategy.value.id, }).then(response => {
+      } else if (data.type === "completed") {
+        showSuccessMessage('回测任务已完成')
+        const completedData = (data as BacktestCompletedUpdate)
+
+        //取消订阅
+        StrategyAPI.unsubscribeBacktestUpdates(taskId.value)
+
+        //更新统计信息
+        backtestStats.value = {
+          totalTrades: completedData.totalTrades,
+          totalReturn: completedData.totalReturn,
+          winRate: completedData.winRate,
+          maxDrawdown: completedData.maxDrawdown
+        }
+
+        //生成收益曲线数据
+        profitCurveData.value = completedData.profitCurve || []
+
+      } else if (data.type === 'error') {
+        //取消订阅
+        StrategyAPI.unsubscribeBacktestUpdates(taskId.value)
+        // throw new Error((data as BacktestErrorUpdate).message || '回测任务出错')
+        showErrorMessage((data as BacktestErrorUpdate).message || '回测任务出错')
+      }
+    })
+
+
+
+    StrategyAPI.backtest({ ...params, strategyId: strategy.value.id, taskId: taskId.value }).then(response => {
       if (response.code === 0) {
         taskId.value = response.data as string
         console.log('回测任务创建成功，任务ID:', response.data)
         showSuccessMessage('回测任务已创建，正在运行中...')
-        //订阅id事件
-        StrategyAPI.subsscribeBacktestUpdates(response.data as string, (data: BacktestUpdate) => {
-          console.log('收到回测更新:', data)
-          if (data.type == "progress") {
-            //新增回测记录
-            backtestData.value.unshift((data as BacktestProgressUpdate).record)
-
-          } else if (data.type === "completed") {
-            showSuccessMessage('回测任务已完成')
-            const completedData = (data as BacktestCompletedUpdate)
-
-            //取消订阅
-            StrategyAPI.unsubscribeBacktestUpdates(taskId.value)
-
-            //更新统计信息
-            backtestStats.value = {
-              totalTrades: completedData.totalTrades,
-              totalReturn: completedData.totalReturn,
-              winRate: completedData.winRate,
-              maxDrawdown: completedData.maxDrawdown
-            }
-
-            //生成收益曲线数据
-            profitCurveData.value = completedData.profitCurve || []
-
-          } else if (data.type === 'error') {
-            //取消订阅
-            StrategyAPI.unsubscribeBacktestUpdates(taskId.value)
-            throw new Error((data as BacktestErrorUpdate).message || '回测任务出错')
-          }
-        })
-
       } else {
         //提示回测失败
         throw new Error(response.message || '回测任务创建失败')
       }
     }).catch(error => {
+      StrategyAPI.unsubscribeBacktestUpdates(taskId.value as string)
       throw error
     })
 
@@ -466,6 +485,34 @@ const runBacktest = async (params: BacktestParams) => {
 
 
 // 策略操作方法
+const handleStrategySave = async (formData: any) => {
+  if (!strategy.value) return
+
+  try {
+    const updateData = {
+      name: formData.name,
+      symbol: formData.symbol,
+      period: formData.period,
+      strategyType: formData.strategyType,
+      strategyConfig: { ...formData.config },
+      description: formData.description,
+    }
+
+    const response = await StrategyAPI.updateStrategy(strategy.value.id, updateData)
+    if (response.code === 0) {
+      // 更新本地数据
+      Object.assign(strategy.value, response.data)
+      showSuccessMessage('策略更新成功')
+      showEditDialog.value = false
+    } else {
+      showErrorMessage(response.message || '更新策略失败')
+    }
+  } catch (error) {
+    console.error('更新策略异常:', error)
+    showErrorMessage('网络错误，无法更新策略')
+  }
+}
+
 const toggleStrategyStatus = async () => {
   if (!strategy.value) return
 

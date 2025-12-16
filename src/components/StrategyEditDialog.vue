@@ -22,22 +22,30 @@
             class="mb-3"
           />
 
-          <v-select
+          <v-autocomplete
+            ref="symbolSelect"
             v-model="strategyForm.symbol"
             :items="symbolOptions"
             label="交易对"
             :rules="symbolRules"
             required
+            multiple
+            chips
+            closable-chips
             variant="outlined"
             class="mb-3"
           />
 
           <v-select
+            ref="periodSelect"
             v-model="strategyForm.period"
             :items="periodOptions"
             label="时间周期"
             :rules="periodRules"
             required
+            multiple
+            chips
+            closable-chips
             variant="outlined"
             class="mb-3"
           />
@@ -167,21 +175,24 @@ const emit = defineEmits<{
 
 // 表单引用和验证状态
 const form = ref()
+const symbolSelect = ref()
+const periodSelect = ref()
 const valid = ref(false)
+const isInitializing = ref(false)
 
 // 表单数据
 const strategyForm = ref<{
   name: string
-  symbol: string
-  period: string
+  symbol: string[]
+  period: string[]
   strategyType: string
   description: string
   config: Record<string, any>
   enableOnCreate: boolean
 }>({
   name: '',
-  symbol: '',
-  period: '',
+  symbol: [],
+  period: [],
   strategyType: '',
   description: '',
   config: {},
@@ -191,15 +202,19 @@ const strategyForm = ref<{
 // 计算属性 - 策略类型选项
 const strategyTypeOptions = computed(() => {
   return props.strategyInfos.map(info => ({
-    title: info.desc,
+    title: info.name,
     value: info.type
   }))
 })
 
+// 计算属性 - 当前选中的策略信息
+const currentStrategyInfo = computed(() => {
+  return props.strategyInfos.find(info => info.type === strategyForm.value.strategyType)
+})
+
 // 计算属性 - 当前策略的配置信息
 const currentStrategyConfig = computed(() => {
-  const selectedStrategy = props.strategyInfos.find(info => info.type === strategyForm.value.strategyType)
-  return selectedStrategy?.config || {}
+  return currentStrategyInfo.value?.config || {}
 })
 
 // 计算属性 - 配置字段数组，每两个一组
@@ -218,13 +233,27 @@ const nameRules = [
   (v: string) => v.length >= 2 || '策略名称至少2个字符'
 ]
 
-const symbolRules = [
-  (v: string) => !!v || '请选择交易对'
-]
+const symbolRules = computed(() => [
+  (v: string[]) => {
+    if (!v || v.length === 0) return '请选择交易对'
+    const count = currentStrategyInfo.value?.symbolCount
+    if (count !== undefined && count !== null) {
+      return v.length === count || `请选择 ${count} 个交易对`
+    }
+    return v.length === 1 || '请选择 1 个交易对'
+  }
+])
 
-const periodRules = [
-  (v: string) => !!v || '请选择时间周期'
-]
+const periodRules = computed(() => [
+  (v: string[]) => {
+    if (!v || v.length === 0) return '请选择时间周期'
+    const count = currentStrategyInfo.value?.periodCount
+    if (count !== undefined && count !== null) {
+      return v.length === count || `请选择 ${count} 个时间周期`
+    }
+    return v.length === 1 || '请选择 1 个时间周期'
+  }
+])
 
 const strategyTypeRules = [
   (v: string) => !!v || '请选择策略类型'
@@ -256,8 +285,8 @@ const handleSave = async () => {
 
   const formData = {
     name: strategyForm.value.name,
-    symbol: strategyForm.value.symbol,
-    period: strategyForm.value.period,
+    symbol: strategyForm.value.symbol.join(','),
+    period: strategyForm.value.period.join(','),
     strategyType: strategyForm.value.strategyType,
     description: strategyForm.value.description,
     config: { ...strategyForm.value.config },
@@ -277,8 +306,8 @@ const handleCancel = () => {
 const resetForm = () => {
   strategyForm.value = {
     name: '',
-    symbol: '',
-    period: '',
+    symbol: [],
+    period: [],
     strategyType: '',
     description: '',
     config: {},
@@ -291,11 +320,12 @@ const resetForm = () => {
 
 // 初始化表单数据
 const initForm = (strategy?: Strategy | null) => {
+  isInitializing.value = true
   if (strategy) {
     strategyForm.value = {
       name: strategy.name,
-      symbol: strategy.symbol,
-      period: strategy.period,
+      symbol: strategy.symbol ? strategy.symbol.split(',') : [],
+      period: strategy.period ? strategy.period.split(',') : [],
       strategyType: strategy.strategyType,
       description: strategy.description || '',
       config: { ...strategy.strategyConfig },
@@ -304,6 +334,9 @@ const initForm = (strategy?: Strategy | null) => {
   } else {
     resetForm()
   }
+  nextTick(() => {
+    isInitializing.value = false
+  })
 }
 
 // 监听策略变化
@@ -333,10 +366,20 @@ watch(
           defaultConfig[key] = fieldConfig.defaultValue
         })
         strategyForm.value.config = defaultConfig
+
+        if (!isInitializing.value) {
+          strategyForm.value.description = selectedStrategy.desc
+        }
       }
     } else {
       strategyForm.value.config = {}
     }
+
+    // 切换策略类型后，重新校验交易对和时间周期
+    nextTick(() => {
+      symbolSelect.value?.validate()
+      periodSelect.value?.validate()
+    })
   }
 )
 </script>

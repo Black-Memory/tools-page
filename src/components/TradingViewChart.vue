@@ -3,7 +3,17 @@
     <v-card-title class="chart-card-title d-flex align-center justify-space-between">
       <div class="d-flex align-center chart-title-info">
         <v-icon class="mr-2 chart-icon">mdi-chart-box</v-icon>
-        <span class="chart-title-text">{{ symbol }} ({{ period }})</span>
+        <span class="chart-title-text">{{ currentSymbol }}</span>
+
+        <!-- 周期切换 -->
+        <div class="ml-4" v-if="availablePeriods.length > 1">
+          <v-btn-toggle v-model="currentPeriod" mandatory density="compact" variant="outlined" color="primary" divided>
+            <v-btn v-for="p in availablePeriods" :key="p" :value="p" size="small">
+              {{ p }}
+            </v-btn>
+          </v-btn-toggle>
+        </div>
+        <span v-else class="ml-2 text-body-2 text-medium-emphasis">({{ currentPeriod }})</span>
       </div>
       <div class="chart-toolbar">
         <v-btn v-if="profitCurveData && profitCurveData.length > 0" icon="mdi-chart-bell-curve" size="small"
@@ -37,13 +47,13 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { createChartConfig, CustomDatafeed, getChartData, saveChartData } from '@/utils/chartUtil'
+import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
+import { createChartConfig, CustomDatafeed, getChartData, saveChartData, mapPeriodToTradingViewInterval } from '@/utils/chartUtil'
 
 interface Props {
   chartId?: string  // 可选图表ID，用于区分不同图表实例
-  symbol: string
-  period: string
+  symbol: string  //传入的symbol可能存在多个，用","分隔
+  period: string  //传入的period可能存在多个，用","分隔
   profitCurveData?: Array<{
     time: number
     value: number
@@ -61,12 +71,59 @@ const tvWidget = ref<any>(null)
 const chartHeight = ref('50vh')
 const profitCurveStudy = ref<any>(null)
 
-// 监听props变化，重新初始化图表
-watch(() => [props.symbol, props.period], () => {
-  if (props.symbol && props.period) {
-    initChart()
+// 解析后的当前状态
+const currentSymbol = ref('')
+const currentPeriod = ref('')
+
+// 可选周期列表
+const availablePeriods = computed(() => {
+  return props.period ? props.period.split(',').filter(p => p.trim()) : []
+})
+
+// 监听 props 变化，初始化或更新 currentSymbol 和 currentPeriod
+watch(() => props.symbol, (newVal) => {
+  if (newVal) {
+    const symbols = newVal.split(',')
+    // 默认取第一个 symbol
+    if (symbols.length > 0) {
+      currentSymbol.value = symbols[0]!.trim()
+    }
   }
-}, { immediate: false })
+}, { immediate: true })
+
+watch(() => props.period, (newVal) => {
+  if (newVal) {
+    const periods = newVal.split(',')
+    // 如果当前周期为空，或者不在新的周期列表中，则重置为第一个
+    if (periods.length > 0) {
+      const firstPeriod = periods[0]!.trim()
+      if (!currentPeriod.value || !periods.map(p => p.trim()).includes(currentPeriod.value)) {
+        currentPeriod.value = firstPeriod
+      }
+    }
+  }
+}, { immediate: true })
+
+// 监听 currentSymbol 和 currentPeriod 变化来驱动图表更新
+watch([currentSymbol, currentPeriod], ([newSym, newPeriod], [oldSym, oldPeriod]) => {
+  if (!newSym || !newPeriod) return
+
+  // 如果是第一次加载（oldSym 和 oldPeriod 为 undefined），或者 symbol 变了，或者 widget 不存在，则初始化图表
+  if (!oldSym || !oldPeriod || newSym !== oldSym || !tvWidget.value) {
+    initChart()
+  } else if (newPeriod !== oldPeriod) {
+    // 如果只是周期变了，尝试使用 setResolution
+    try {
+      const interval = mapPeriodToTradingViewInterval(newPeriod)
+      tvWidget.value.activeChart().setResolution(interval, () => {
+        console.log('周期切换成功:', newPeriod)
+      })
+    } catch (error) {
+      console.warn('切换周期失败，重新初始化图表:', error)
+      initChart()
+    }
+  }
+})
 
 // 监听收益曲线数据变化
 watch(() => props.profitCurveData, (newData) => {
@@ -124,7 +181,7 @@ const prepareProfitDataGlobal = (profitData: Array<{ time: number; value: number
 
 
 const initChart = async () => {
-  if (!props.symbol || !chartContainer.value) return
+  if (!currentSymbol.value || !chartContainer.value) return
 
   try {
     chartLoading.value = true
@@ -183,13 +240,129 @@ const loadTradingViewLibrary = (): Promise<void> => {
 
 
 const createTradingViewChart = async (): Promise<void> => {
-  if (!props.symbol || !chartContainer.value) return
+  if (!currentSymbol.value || !chartContainer.value) return
   // 创建图表配置
-  const widgetOptions: any = createChartConfig(props.symbol, props.period, chartContainer.value)
+  const widgetOptions: any = createChartConfig(currentSymbol.value, currentPeriod.value, chartContainer.value)
 
   // 添加自定义指标支持
   widgetOptions.custom_indicators_getter = function (PineJS: any) {
     return Promise.resolve([
+      {
+        // 内部名称，必须唯一
+        name: '20-Day-High-Low', // 内部名称，必须唯一
+        metainfo: {
+            _metainfoVersion: 51,
+          id: '20DayHighLow@tv-basicstudies-1',
+          scriptIdPart: '20DayHighLow',
+          name: '20日高低点', // 用户界面上显示的名称
+          description: '最近20日的高点和低点',
+          shortDescription: '20日高低点',
+          // 确保显示在主图上
+          is_price_study: true,
+          isCustomIndicator: true,
+          // 定义两条绘图线
+          plots: [
+            { id: 'plot_high', type: 'line' },
+            { id: 'plot_low', type: 'line' }
+          ],
+          // 默认样式和输入参数
+          defaults: {
+            styles: {
+              plot_high: {
+                color: '#009688', // 高点颜色：绿色
+                linewidth: 2,
+                plottype: 2, // 2代表Line Plot
+                trackPrice: true,
+                title: '20日高点'
+              },
+              plot_low: {
+                color: '#F44336', // 低点颜色：红色
+                linewidth: 2,
+                plottype: 2,
+                trackPrice: true,
+                title: '20日低点'
+              }
+            }
+          },
+          styles: {
+            plot_high: {
+              title: 'high points',
+            },
+            plot_low: {
+              title: 'low points',
+            }
+          },
+            format: {
+            type: 'price',
+            precision: 4,
+          },
+          inputs: [
+            {
+              id: 'period', name: 'period', type: 'integer', defval: 20, min: 1,
+              max: 10000,
+            }
+          ],
+        },
+
+        // 指标的计算逻辑
+        constructor: function () {
+          // 用于存储历史价格的数组，在每次 main 调用之间保持状态
+          this.highs = [];
+          this.lows = [];
+
+          this.init = function (context: any, inputCallback: any) {
+            this._context = context;
+            this._input = inputCallback;
+            // 重新定义输入参数，如果之前未定义
+            // if (!this._input.get('length')) {
+            //   this._input.add('length', { type: 'integer', defval: 20, min: 1 });
+            // }
+
+
+          };
+
+          this.main = function (context: any, inputCallback: any) {
+            this._context = context;
+            this._input = inputCallback;
+
+            // 1. 获取输入参数 (周期长度)
+            const length = 20; // 默认20日
+
+            // 2. 获取当前 K 线的数值 (使用您库中有效的 PineJS.Std 方法)
+            const currentHighValue = PineJS.Std.high(this._context);
+            const currentLowValue = PineJS.Std.low(this._context);
+            // 3. 将当前值推入历史数组
+            this.highs.push(currentHighValue);
+            this.lows.push(currentLowValue);
+
+            // 4. 实现滑动窗口：移除最旧的数据 (FIFO - First In, First Out)
+            if (this.highs.length > length) {
+              this.highs.shift(); // 移除最旧的最高价
+            }
+            if (this.lows.length > length) {
+              this.lows.shift();  // 移除最旧的最低价
+            }
+
+            // 5. 计算当前滑动窗口内的最高点和最低点
+            let windowHigh = NaN;
+            let windowLow = NaN;
+
+            // 仅当数组长度达到或超过周期长度时才开始计算，否则可能返回不完整的高低点
+            if (this.highs.length === length) {
+              // 使用 Math.max/min 结合 spread 运算符计算数组的最大/最小值
+              windowHigh = Math.max(...this.highs);
+              windowLow = Math.min(...this.lows);
+            } else if (this.highs.length < length && this.highs.length > 0) {
+              // 在数据积累阶段，计算当前已有的最大/最小值
+              windowHigh = Math.max(...this.highs);
+              windowLow = Math.min(...this.lows);
+            }
+
+            // 6. 返回结果：[最高点值, 最低点值]
+            return [windowHigh, windowLow];
+          };
+        }
+      },
       {
         name: "收益率",
         metainfo: {
@@ -244,7 +417,7 @@ const createTradingViewChart = async (): Promise<void> => {
             context.select_sym(1);
 
             const equityValue = PineJS.Std.close(this._context);
-            return [equityValue,equityValue];
+            return [equityValue, equityValue];
           };
         }
       }

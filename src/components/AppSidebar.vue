@@ -55,6 +55,11 @@ const menuItems = ref([
     title: '策略',
     icon: 'mdi-toolbox',
     to: '/strategy'
+  },
+  {
+    title: '监控',
+    icon: 'mdi-monitor-dashboard',
+    to: '/monitor'
   }
 
 ])

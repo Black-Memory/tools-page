@@ -48,7 +48,10 @@ export interface StrategyFieldConfig {
 // 策略信息接口
 export interface StrategyInfo {
   type: string;
+  name: string;
   desc: string;
+  periodCount?: number; // 所需周期数量（可选）
+  symbolCount?: number; // 所需交易对数量（可选）
   config: Record<string, StrategyFieldConfig>;
 }
 
@@ -73,7 +76,7 @@ export interface BacktestParams {
 export interface BacktestRecord {
   time: string
   symbol: string
- direction: 'openLong' | 'openShort' | 'closeLong' | 'closeShort'
+  direction: 'openLong' | 'openShort' | 'closeLong' | 'closeShort'
   price: number
   quantity: number
   realizedPnl: number
@@ -82,25 +85,36 @@ export interface BacktestRecord {
 
 
 export interface BacktestUpdate {
-    type: 'progress' | 'completed' | 'error',
+  type: 'progress' | 'completed' | 'error',
 }
 
 
 export interface BacktestProgressUpdate extends BacktestUpdate {
-    type: 'progress',
-    record: BacktestRecord,
+  type: 'progress',
+  record: BacktestRecord,
 }
 
 export interface BacktestCompletedUpdate extends BacktestUpdate {
-    type: 'completed',
-    totalTrades: number,
-    totalReturn: number,
-    winRate: number,
-    maxDrawdown: number,
-    profitCurve: Array<{ time: number, value: number }>
+  type: 'completed',
+  totalTrades: number,
+  totalReturn: number,
+  winRate: number,
+  maxDrawdown: number,
+  profitCurve: Array<{ time: number, value: number }>
 }
 
 export interface BacktestErrorUpdate extends BacktestUpdate {
-    type: 'error',
-    message: string,
+  type: 'error',
+  message: string,
+}
+
+
+
+export interface Monitor {
+  id: string
+  userId: string
+  monitorUser: string
+  source: string
+  pushEnabled: boolean
+  remark?: string
 }

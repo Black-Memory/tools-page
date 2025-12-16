@@ -217,7 +217,7 @@ const formatAmount = (amount: number) => {
 const getStrategyTypeLabel = (type: string) => {
   if (props.strategyInfos) {
     const strategyInfo = props.strategyInfos.find(info => info.type === type)
-    return strategyInfo?.desc || '--'
+    return strategyInfo?.name || '--'
   }
   return '--'
 }

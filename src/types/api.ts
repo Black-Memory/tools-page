@@ -43,5 +43,14 @@ export interface UpdateStrategyRequest extends Partial<Omit<Strategy, 'id' | 'cr
 
 
 export interface CreateBacktestDto extends BacktestParams {
-
+  taskId?: string
 }
+
+export interface CreateMonitorDto {
+  monitorUser: string
+  source: string
+  pushEnabled?: boolean
+  remark?: string
+}
+
+export interface UpdateMonitorDto extends Partial<CreateMonitorDto> {}
