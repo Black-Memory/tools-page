@@ -306,7 +306,7 @@ const loadStrategyDetail = async () => {
 // 状态显示方法
 const getStrategyTypeLabel = (type: string) => {
   const strategyInfo = strategyInfos.value.find(info => info.type === type)
-  return strategyInfo?.desc || type
+  return strategyInfo?.name || type
 }
 
 
