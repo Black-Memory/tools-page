@@ -94,26 +94,14 @@
       </v-card>
     </v-dialog>
 
-    <!-- Toast 提示 -->
-    <v-snackbar v-model="showErrorSnackbar" color="error" timeout="5000" location="top">
-      {{ configLoadError }}
-    </v-snackbar>
-
-    <!-- 成功提示 -->
-    <v-snackbar v-model="showSuccessSnackbar" color="success" timeout="3000" location="top">
-      {{ operationMessage }}
-    </v-snackbar>
-
-    <!-- 操作错误提示 -->
-    <v-snackbar v-model="showOperationErrorSnackbar" color="error" timeout="5000" location="top">
-      {{ operationMessage }}
-    </v-snackbar>
+    <!-- 全局snackbar已统一，无需本地snackbar -->
   </div>
 </template>
 
 <script lang="ts" setup>
 import type { Strategy, StrategyInfo } from '@/types/interface'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { showErrorMessage, showSuccessMessage } from '@/composables/snackbar'
 import { StrategyAPI } from '@/api/strategy'
 import type { CreateStrategyRequest } from '@/types/api'
 import { socketService } from '@/utils/socket'
@@ -142,33 +130,7 @@ const symbolOptions = ref<string[]>([])
 const periodOptions = ref<string[]>([])
 const strategyInfos = ref<StrategyInfo[]>([])
 
-// 错误状态
-const configLoadError = ref<string>('')
-const showErrorSnackbar = ref(false)
 
-// 操作提示状态
-const operationMessage = ref<string>('')
-const showSuccessSnackbar = ref(false)
-const showOperationErrorSnackbar = ref(false)
-
-// 监听configLoadError变化，显示snackbar
-watch(configLoadError, (newError) => {
-  if (newError) {
-    showErrorSnackbar.value = true
-  }
-})
-
-// 显示成功提示
-const showSuccessMessage = (message: string) => {
-  operationMessage.value = message
-  showSuccessSnackbar.value = true
-}
-
-// 显示错误提示
-const showErrorMessage = (message: string) => {
-  operationMessage.value = message
-  showOperationErrorSnackbar.value = true
-}
 
 
 
@@ -181,11 +143,11 @@ const loadStrategyConfigs = async () => {
       periodOptions.value = response.data.periods
       strategyInfos.value = response.data.strategyInfos
     } else {
-      configLoadError.value = response.message || '获取策略配置失败'
+      showErrorMessage(response.message || '获取策略配置失败')
     }
   } catch (error) {
     console.error('加载策略配置失败:', error)
-    configLoadError.value = '网络错误，无法加载策略配置'
+    showErrorMessage('网络错误，无法加载策略配置')
   }
 }
 

@@ -8,9 +8,15 @@
             <v-icon class="mr-2" color="primary">mdi-monitor-dashboard</v-icon>
             <h2 class="text-h5 font-weight-bold">监控面板</h2>
           </div>
-          <v-btn color="primary" prepend-icon="mdi-plus" @click="createMonitor">
-            创建监控
-          </v-btn>
+          <div>
+            <v-btn color="primary" prepend-icon="mdi-plus" @click="createMonitor">
+              创建监控
+            </v-btn>
+            <v-btn color="info" prepend-icon="mdi-telegram" class="ml-2" @click="showTelegramConfig = true">
+              Telegram配置
+            </v-btn>
+          </div>
+
         </div>
       </v-card-text>
     </v-card>
@@ -40,40 +46,19 @@
               </v-chip>
             </td>
             <td>
-              <v-chip
-                :color="item.pushEnabled ? 'success' : 'grey'"
-                size="small"
-                label
-              >
+              <v-chip :color="item.pushEnabled ? 'success' : 'grey'" size="small" label>
                 {{ item.pushEnabled ? '运行中' : '已停止' }}
               </v-chip>
             </td>
             <td>
               <div class="d-flex align-center ga-2">
-                <v-btn
-                  size="small"
-                  :color="item.pushEnabled ? 'warning' : 'success'"
-                  variant="text"
-                  :icon="item.pushEnabled ? 'mdi-stop' : 'mdi-play'"
-                  @click="toggleStatus(item)"
-                  :title="item.pushEnabled ? '停止' : '开启'"
-                ></v-btn>
-                <v-btn
-                  size="small"
-                  color="primary"
-                  variant="text"
-                  icon="mdi-pencil"
-                  @click="editMonitor(item)"
-                  title="编辑"
-                ></v-btn>
-                <v-btn
-                  size="small"
-                  color="error"
-                  variant="text"
-                  icon="mdi-delete"
-                  @click="deleteMonitor(item)"
-                  title="删除"
-                ></v-btn>
+                <v-btn size="small" :color="item.pushEnabled ? 'warning' : 'success'" variant="text"
+                  :icon="item.pushEnabled ? 'mdi-stop' : 'mdi-play'" @click="toggleStatus(item)"
+                  :title="item.pushEnabled ? '停止' : '开启'"></v-btn>
+                <v-btn size="small" color="primary" variant="text" icon="mdi-pencil" @click="editMonitor(item)"
+                  title="编辑"></v-btn>
+                <v-btn size="small" color="error" variant="text" icon="mdi-delete" @click="deleteMonitor(item)"
+                  title="删除"></v-btn>
               </div>
             </td>
           </tr>
@@ -87,19 +72,15 @@
     </v-card>
 
     <!-- 编辑/创建对话框 -->
-    <MonitorEditDialog
-      v-model="showEditDialog"
-      :monitor="editingMonitor"
-      @save="handleSave"
-      @cancel="showEditDialog = false"
-    />
+    <MonitorEditDialog v-model="showEditDialog" :monitor="editingMonitor" @save="handleSave"
+      @cancel="showEditDialog = false" />
 
     <!-- 删除确认对话框 -->
     <v-dialog v-model="showDeleteDialog" max-width="400">
       <v-card>
         <v-card-title class="text-h6">确认删除</v-card-title>
         <v-card-text>
-          确定要删除监控 "{{ deletingMonitor?.remark|| deletingMonitor?.monitorUser }}" 吗？此操作不可撤销。
+          确定要删除监控 "{{ deletingMonitor?.remark || deletingMonitor?.monitorUser }}" 吗？此操作不可撤销。
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -109,18 +90,20 @@
       </v-card>
     </v-dialog>
 
-    <!-- 提示消息 -->
-    <v-snackbar v-model="showSnackbar" :color="snackbarColor" timeout="3000" location="top">
-      {{ snackbarMessage }}
-    </v-snackbar>
+    <!-- 提示消息已全局化，无需本地snackbar -->
+    <!-- Telegram配置弹窗 -->
+    <TelegramConfigDialog v-model="showTelegramConfig" :telegram="userInfo?.telegram" />
   </div>
 </template>
 
 <script lang="ts" setup>
 import type { Monitor } from '@/types/interface'
 import { ref, onMounted } from 'vue'
+import { showErrorMessage, showSuccessMessage } from '@/composables/snackbar'
 import MonitorEditDialog from '@/components/MonitorEditDialog.vue'
+import TelegramConfigDialog from '@/components/TelegramConfigDialog.vue'
 import { MonitorAPI } from '@/api/monitor'
+import { useUserStore } from '@/stores/user'
 
 const monitors = ref<Monitor[]>([])
 const showEditDialog = ref(false)
@@ -128,16 +111,14 @@ const showDeleteDialog = ref(false)
 const editingMonitor = ref<Monitor | null>(null)
 const deletingMonitor = ref<Monitor | null>(null)
 
-// 提示消息状态
-const showSnackbar = ref(false)
-const snackbarMessage = ref('')
-const snackbarColor = ref('success')
+// Telegram配置弹窗状态
+const showTelegramConfig = ref(false)
 
-const showMessage = (message: string, color: 'success' | 'error' = 'success') => {
-  snackbarMessage.value = message
-  snackbarColor.value = color
-  showSnackbar.value = true
-}
+// 用户信息
+const userStore = useUserStore()
+const userInfo = ref(userStore.userInfo)
+
+
 
 // 加载监控列表
 const loadMonitors = async () => {
@@ -146,11 +127,11 @@ const loadMonitors = async () => {
     if (res.code === 0 && res.data) {
       monitors.value = res.data
     } else {
-      showMessage(res.message || '加载监控列表失败', 'error')
+      showErrorMessage(res.message || '加载监控列表失败')
     }
   } catch (error) {
     console.error('加载监控列表异常:', error)
-    showMessage('网络错误，无法加载监控列表', 'error')
+    showErrorMessage('网络错误，无法加载监控列表')
   }
 }
 
@@ -170,26 +151,26 @@ const handleSave = async (data: any) => {
       // 编辑模式
       const res = await MonitorAPI.update(editingMonitor.value.id, data)
       if (res.code === 0) {
-        showMessage('更新监控成功')
+        showSuccessMessage('更新监控成功')
         loadMonitors() // 重新加载列表
         showEditDialog.value = false
       } else {
-        showMessage(res.message || '更新监控失败', 'error')
+        showErrorMessage(res.message || '更新监控失败')
       }
     } else {
       // 创建模式
       const res = await MonitorAPI.create(data)
       if (res.code === 0) {
-        showMessage('创建监控成功')
+        showSuccessMessage('创建监控成功')
         loadMonitors() // 重新加载列表
         showEditDialog.value = false
       } else {
-        showMessage(res.message || '创建监控失败', 'error')
+        showErrorMessage(res.message || '创建监控失败')
       }
     }
   } catch (error) {
     console.error('保存监控异常:', error)
-    showMessage('网络错误，操作失败', 'error')
+    showErrorMessage('网络错误，操作失败')
   }
 }
 
@@ -204,14 +185,14 @@ const confirmDelete = async () => {
   try {
     const res = await MonitorAPI.remove(deletingMonitor.value.id)
     if (res.code === 0) {
-      showMessage('删除监控成功')
+      showSuccessMessage('删除监控成功')
       loadMonitors()
     } else {
-      showMessage(res.message || '删除监控失败', 'error')
+      showErrorMessage(res.message || '删除监控失败')
     }
   } catch (error) {
     console.error('删除监控异常:', error)
-    showMessage('网络错误，操作失败', 'error')
+    showErrorMessage('网络错误，操作失败')
   } finally {
     showDeleteDialog.value = false
     deletingMonitor.value = null
@@ -224,18 +205,23 @@ const toggleStatus = async (item: Monitor) => {
     const res = await MonitorAPI.update(item.id, { pushEnabled: newStatus })
     if (res.code === 0) {
       item.pushEnabled = newStatus
-      showMessage(`已${newStatus ? '开启' : '停止'}推送`)
+      showSuccessMessage(`已${newStatus ? '开启' : '停止'}推送`)
     } else {
-      showMessage(res.message || '更新状态失败', 'error')
+      showErrorMessage(res.message || '更新状态失败')
     }
   } catch (error) {
     console.error('更新状态异常:', error)
-    showMessage('网络错误，操作失败', 'error')
+    showErrorMessage('网络错误，操作失败')
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadMonitors()
+  // 获取用户信息（优先本地，否则请求）
+  // if (!userStore.userInfo) {
+  await userStore.fetchUserInfo()
+  // }
+  userInfo.value = userStore.userInfo
 })
 </script>
 

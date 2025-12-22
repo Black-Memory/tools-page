@@ -74,6 +74,15 @@ export class CustomDatafeed {
     setTimeout(() => onSymbolResolvedCallback(symbolStub), 0)
   }
 
+  getMarks(symbolInfo: any, from: number, to: number, onDataCallback: (marks: any[]) => void, resolution: string) {
+
+    console.log('getMarks not implemented');
+
+
+  }
+
+
+
   // 记录已加载的最早K线时间
   oldestBarTime: number | null = null
 
@@ -220,6 +229,7 @@ export const createChartConfig = (symbol: string, period: string, container: HTM
     ],
     fullscreen: false,
     autosize: true,
+    supports_marks: true,
     theme: "light",
     timezone: 'Asia/Shanghai',
     debug: false,

@@ -26,9 +26,17 @@ export interface UserInfo {
   _id: string
   username: string
   email?: string
+
+  telegram?: {
+    appId: string
+    appHash: string
+    phoneNumber: string
+    session?: string
+  }
 }
 
 
+export interface UpdateUserInfoRequest extends Partial<Omit<UserInfo, '_id'>> { }
 
 
 
@@ -53,4 +61,4 @@ export interface CreateMonitorDto {
   remark?: string
 }
 
-export interface UpdateMonitorDto extends Partial<CreateMonitorDto> {}
+export interface UpdateMonitorDto extends Partial<CreateMonitorDto> { }

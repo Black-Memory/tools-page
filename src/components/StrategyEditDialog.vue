@@ -1,11 +1,6 @@
 <template>
-  <v-dialog
-    :model-value="modelValue"
-    @update:model-value="$emit('update:modelValue', $event)"
-    max-width="600"
-    persistent
-    :fullscreen="$vuetify.display.xs"
-  >
+  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="600"
+     :fullscreen="$vuetify.display.xs">
     <v-card>
       <v-card-title class="text-h5">
         {{ strategy ? '编辑策略' : '添加新策略' }}
@@ -13,133 +8,55 @@
 
       <v-card-text>
         <v-form ref="form" v-model="valid">
-          <v-text-field
-            v-model="strategyForm.name"
-            label="策略名称"
-            :rules="nameRules"
-            required
-            variant="outlined"
-            class="mb-3"
-          />
+          <v-text-field v-model="strategyForm.name" label="策略名称" :rules="nameRules" required variant="outlined"
+            class="mb-3" />
 
-          <v-autocomplete
-            ref="symbolSelect"
-            v-model="strategyForm.symbol"
-            :items="symbolOptions"
-            label="交易对"
-            :rules="symbolRules"
-            required
-            multiple
-            chips
-            closable-chips
-            variant="outlined"
-            class="mb-3"
-          />
+          <v-autocomplete ref="symbolSelect" v-model="strategyForm.symbol" :items="symbolOptions" label="交易对"
+            :rules="symbolRules" required multiple chips closable-chips variant="outlined" class="mb-3" />
 
-          <v-select
-            ref="periodSelect"
-            v-model="strategyForm.period"
-            :items="periodOptions"
-            label="时间周期"
-            :rules="periodRules"
-            required
-            multiple
-            chips
-            closable-chips
-            variant="outlined"
-            class="mb-3"
-          />
+          <v-select ref="periodSelect" v-model="strategyForm.period" :items="periodOptions" label="时间周期"
+            :rules="periodRules" required multiple chips closable-chips variant="outlined" class="mb-3" />
 
-          <v-select
-            v-model="strategyForm.strategyType"
-            :items="strategyTypeOptions"
-            item-title="title"
-            item-value="value"
-            label="策略类型"
-            :rules="strategyTypeRules"
-            required
-            variant="outlined"
-            class="mb-3"
-          />
+          <v-select v-model="strategyForm.strategyType" :items="strategyTypeOptions" item-title="title"
+            item-value="value" label="策略类型" :rules="strategyTypeRules" required variant="outlined" class="mb-3" />
 
           <!-- 策略配置参数 - 动态生成 -->
           <div v-if="strategyForm.strategyType && configFieldGroups.length > 0" class="mb-3">
             <v-row v-for="(group, groupIndex) in configFieldGroups" :key="groupIndex" class="mb-2">
               <v-col v-for="[fieldKey, fieldConfig] in group" :key="fieldKey" cols="6">
                 <!-- 数字类型输入 -->
-                <v-text-field
-                  v-if="fieldConfig.type === 'number'"
-                  v-model.number="strategyForm.config[fieldKey]"
-                  :label="fieldConfig.label"
-                  type="number"
-                  :min="fieldConfig.min"
-                  :max="fieldConfig.max"
-                  :required="fieldConfig.required"
-                  variant="outlined"
-                  :rules="getFieldRules(fieldConfig)"
-                />
+                <v-text-field v-if="fieldConfig.type === 'number'" v-model.number="strategyForm.config[fieldKey]"
+                  :label="fieldConfig.label" type="number" :min="fieldConfig.min" :max="fieldConfig.max"
+                  :required="fieldConfig.required" variant="outlined" :rules="getFieldRules(fieldConfig)" />
 
                 <!-- 字符串类型输入 -->
-                <v-text-field
-                  v-else-if="fieldConfig.type === 'string'"
-                  v-model="strategyForm.config[fieldKey]"
-                  :label="fieldConfig.label"
-                  :required="fieldConfig.required"
-                  variant="outlined"
-                  :rules="getFieldRules(fieldConfig)"
-                />
+                <v-text-field v-else-if="fieldConfig.type === 'string'" v-model="strategyForm.config[fieldKey]"
+                  :label="fieldConfig.label" :required="fieldConfig.required" variant="outlined"
+                  :rules="getFieldRules(fieldConfig)" />
 
                 <!-- 选择类型输入 -->
-                <v-select
-                  v-else-if="fieldConfig.type === 'select'"
-                  v-model="strategyForm.config[fieldKey]"
-                  :items="fieldConfig.options || []"
-                  item-title="label"
-                  item-value="value"
-                  :label="fieldConfig.label"
-                  :required="fieldConfig.required"
-                  variant="outlined"
-                  :rules="getFieldRules(fieldConfig)"
-                />
+                <v-select v-else-if="fieldConfig.type === 'select'" v-model="strategyForm.config[fieldKey]"
+                  :items="fieldConfig.options || []" item-title="label" item-value="value" :label="fieldConfig.label"
+                  :required="fieldConfig.required" variant="outlined" :rules="getFieldRules(fieldConfig)" />
 
                 <!-- 布尔类型输入 -->
-                <v-checkbox
-                  v-else-if="fieldConfig.type === 'boolean'"
-                  v-model="strategyForm.config[fieldKey]"
-                  :label="fieldConfig.label"
-                  :required="fieldConfig.required"
-                />
+                <v-checkbox v-else-if="fieldConfig.type === 'boolean'" v-model="strategyForm.config[fieldKey]"
+                  :label="fieldConfig.label" :required="fieldConfig.required" />
               </v-col>
             </v-row>
           </div>
 
-          <v-textarea
-            v-model="strategyForm.description"
-            label="策略描述（可选）"
-            variant="outlined"
-            rows="3"
-            class="mb-3"
-          />
+          <v-textarea v-model="strategyForm.description" label="策略描述（可选）" variant="outlined" rows="3" class="mb-3" />
 
           <!-- 开启运行选项 -->
-          <v-checkbox
-            v-model="strategyForm.enableOnCreate"
-            label="开启运行"
-            color="primary"
-            class="mb-3"
-          />
+          <v-checkbox v-model="strategyForm.enableOnCreate" label="开启运行" color="primary" class="mb-3" />
         </v-form>
       </v-card-text>
 
       <v-card-actions>
         <v-spacer />
         <v-btn @click="handleCancel">取消</v-btn>
-        <v-btn
-          color="primary"
-          :disabled="!valid"
-          :loading="loading"
-          @click="handleSave"
-        >
+        <v-btn color="primary" :disabled="!valid" :loading="loading" @click="handleSave">
           {{ strategy ? '更新' : '添加' }}
         </v-btn>
       </v-card-actions>
@@ -261,11 +178,14 @@ const strategyTypeRules = [
 
 // 动态字段验证规则生成函数
 const getFieldRules = (fieldConfig: any) => {
-  const rules = []
 
-  if (fieldConfig.required) {
-    rules.push((v: any) => !!v || `${fieldConfig.label}不能为空`)
+  const rules: any[] = []
+
+  if (!fieldConfig.required) {
+    return rules
   }
+
+  rules.push((v: any) => !!v || `${fieldConfig.label}不能为空`)
 
   if (fieldConfig.type === 'number') {
     if (fieldConfig.min !== undefined) {
@@ -356,17 +276,20 @@ watch(() => props.modelValue, (isOpen) => {
 // 策略类型变化时初始化配置字段
 watch(
   () => strategyForm.value.strategyType,
-  (newType) => {
+  (newType, oldType) => {
     if (newType) {
       const selectedStrategy = props.strategyInfos.find(info => info.type === newType)
       if (selectedStrategy) {
-        // 初始化配置字段的默认值
-        const defaultConfig: Record<string, any> = {}
-        Object.entries(selectedStrategy.config).forEach(([key, fieldConfig]) => {
-          defaultConfig[key] = fieldConfig.defaultValue
-        })
-        strategyForm.value.config = defaultConfig
+        // 仅在从已有类型切换时初始化默认配置，避免在 resetForm 后被覆盖
+        if (oldType && oldType !== '') {
+          const defaultConfig: Record<string, any> = {}
+          Object.entries(selectedStrategy.config).forEach(([key, fieldConfig]) => {
+            defaultConfig[key] = fieldConfig.defaultValue
+          })
+          strategyForm.value.config = defaultConfig
+        }
 
+        // 切换策略类型并且不是初始化过程时，填入策略描述
         if (!isInitializing.value) {
           strategyForm.value.description = selectedStrategy.desc
         }

@@ -95,7 +95,8 @@
     <div v-else-if="strategy">
       <!-- K线图区域 -->
       <TradingViewChart :chart-id="strategy?.id || ''" :symbol="strategy?.symbol || ''" :period="strategy?.period || ''"
-        :profit-curve-data="profitCurveData" :show-profit-curve="false" ref="chartRef" />
+        :profit-curve-data="profitCurveData" :trade-history-data="tradeHistoryData" :show-profit-curve="false"
+        ref="chartRef" />
 
       <!-- 策略分析区域 -->
       <v-card elevation="2" class="mb-4">
@@ -148,16 +149,7 @@
         </v-card-text>
       </v-card>
 
-      <!-- 策略描述卡片（如果有描述） -->
-      <v-card v-if="strategy.description" elevation="2" class="mb-4">
-        <v-card-title class="d-flex align-center">
-          <v-icon class="mr-2">mdi-text-long</v-icon>
-          策略描述
-        </v-card-title>
-        <v-card-text>
-          <p class="text-body-1">{{ strategy.description }}</p>
-        </v-card-text>
-      </v-card>
+
     </div>
 
     <!-- 策略编辑对话框 -->
@@ -165,20 +157,14 @@
       :symbol-options="symbolOptions" :period-options="periodOptions" :loading="false" @save="handleStrategySave"
       @cancel="showEditDialog = false" />
 
-    <!-- Toast 提示 -->
-    <v-snackbar v-model="showSuccessSnackbar" color="success" timeout="3000" location="top">
-      {{ operationMessage }}
-    </v-snackbar>
-
-    <v-snackbar v-model="showErrorSnackbar" color="error" timeout="5000" location="top">
-      {{ operationMessage }}
-    </v-snackbar>
+    <!-- 全局snackbar已统一，无需本地snackbar -->
   </div>
 </template>
 
 <script lang="ts" setup>
 import type { BacktestCompletedUpdate, BacktestErrorUpdate, BacktestParams, BacktestProgressUpdate, BacktestRecord, BacktestUpdate, Strategy, StrategyInfo, SymbolInfo } from '@/types/interface'
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { showErrorMessage, showSuccessMessage } from '@/composables/snackbar'
 import { useRouter, useRoute } from 'vue-router'
 import { StrategyAPI } from '@/api/strategy'
 import BacktestContent from '@/components/BacktestContent.vue'
@@ -198,10 +184,7 @@ const periodOptions = ref<string[]>([])
 const showEditDialog = ref(false)
 const loading = ref(true)
 const error = ref<string>('')
-// 操作提示状态
-const operationMessage = ref<string>('')
-const showSuccessSnackbar = ref(false)
-const showErrorSnackbar = ref(false)
+
 
 // Tab切换相关状态
 const activeTab = ref('backtest')
@@ -228,6 +211,14 @@ const taskId = ref<string>('')
 // 收益曲线数据
 const profitCurveData = ref<Array<{ time: number; value: number }>>([])
 
+// 交易历史数据
+const tradeHistoryData = ref<Array<{
+  time: number
+  price: number
+  quantity: number
+  profit: number
+  side: 'openLong' | 'openShort' | 'closeLong' | 'closeShort'
+}>>([])
 
 
 // 回测结果表格头部定义
@@ -393,16 +384,7 @@ const formatDate = (dateString?: string) => {
   })
 }
 
-// 消息提示方法
-const showSuccessMessage = (message: string) => {
-  operationMessage.value = message
-  showSuccessSnackbar.value = true
-}
 
-const showErrorMessage = (message: string) => {
-  operationMessage.value = message
-  showErrorSnackbar.value = true
-}
 
 
 
@@ -447,14 +429,27 @@ const runBacktest = async (params: BacktestParams) => {
           maxDrawdown: completedData.maxDrawdown
         }
 
+        tradeHistoryData.value = (backtestData.value).map(record => ({
+          time: Number(record.time),
+          price: record.price,
+          quantity: record.quantity,
+          profit: record.profitRate,
+          side: record.direction
+        }))
+
+
         //生成收益曲线数据
         profitCurveData.value = completedData.profitCurve || []
+        backtestLoading.value = false
+
+
 
       } else if (data.type === 'error') {
         //取消订阅
         StrategyAPI.unsubscribeBacktestUpdates(taskId.value)
         // throw new Error((data as BacktestErrorUpdate).message || '回测任务出错')
         showErrorMessage((data as BacktestErrorUpdate).message || '回测任务出错')
+        backtestLoading.value = false
       }
     })
 
@@ -478,7 +473,6 @@ const runBacktest = async (params: BacktestParams) => {
     console.error('回测运行失败:', error)
     backtestError.value = '回测运行失败: ' + (error as Error).message
     showErrorMessage('回测运行失败')
-  } finally {
     backtestLoading.value = false
   }
 }

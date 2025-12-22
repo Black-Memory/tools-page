@@ -117,4 +117,5 @@ export interface Monitor {
   source: string
   pushEnabled: boolean
   remark?: string
+  filter?: string[]
 }

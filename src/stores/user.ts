@@ -1,13 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { LoginResponse } from '@/types/api'
+import type { LoginResponse, UserInfo } from '@/types/api'
 import { AuthAPI } from '@/api/auth'
+import { UserAPI } from '@/api/user'
 
-interface UserInfo {
-  _id: string
-  username: string
-  email?: string
-}
+
 
 export const useUserStore = defineStore('user', () => {
   // 状态
@@ -83,7 +80,7 @@ export const useUserStore = defineStore('user', () => {
   // 获取用户详细信息
   const fetchUserInfo = async (): Promise<boolean> => {
     try {
-      const response = await AuthAPI.getUserInfo()
+      const response = await UserAPI.getUserInfo()
       if (response.code === 0 && response.data) {
         userInfo.value = response.data
         localStorage.setItem('userInfo', JSON.stringify(response.data))
@@ -92,6 +89,22 @@ export const useUserStore = defineStore('user', () => {
       return false
     } catch (error) {
       console.error('获取用户信息失败:', error)
+      return false
+    }
+  }
+
+  //更新用户信息
+  const updateUserInfo = async (data: Partial<UserInfo>): Promise<boolean> => {
+    try {
+      const response = await UserAPI.updateUserInfo(data)
+      if (response.code === 0 && response.data) {
+        userInfo.value = response.data
+        localStorage.setItem('userInfo', JSON.stringify(response.data))
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('更新用户信息失败:', error)
       return false
     }
   }
@@ -124,6 +137,7 @@ export const useUserStore = defineStore('user', () => {
     restoreUserInfo,
     validateToken,
     fetchUserInfo,
+    updateUserInfo,
     logout
   }
 })

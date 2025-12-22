@@ -11,11 +11,13 @@ declare module 'vue' {
     AppSidebar: typeof import('./components/AppSidebar.vue')['default']
     BacktestContent: typeof import('./components/BacktestContent.vue')['default']
     Deposit: typeof import('./components/Deposit.vue')['default']
+    GlobalSnackbar: typeof import('./components/GlobalSnackbar.vue')['default']
     MonitorEditDialog: typeof import('./components/MonitorEditDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     StrategyCard: typeof import('./components/StrategyCard.vue')['default']
     StrategyEditDialog: typeof import('./components/StrategyEditDialog.vue')['default']
+    TelegramConfigDialog: typeof import('./components/TelegramConfigDialog.vue')['default']
     TradingViewChart: typeof import('./components/TradingViewChart.vue')['default']
   }
 }

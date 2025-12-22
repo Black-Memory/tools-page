@@ -58,6 +58,13 @@ interface Props {
     time: number
     value: number
   }>
+  tradeHistoryData?: Array<{
+    time: number
+    price: number
+    quantity: number
+    profit: number
+    side: 'openLong' | 'openShort' | 'closeLong' | 'closeShort'
+  }>
   showProfitCurve?: boolean
 }
 
@@ -143,6 +150,8 @@ watch(() => props.profitCurveData, (newData) => {
     }
   }
 }, { deep: true })
+
+
 
 // 监听收益曲线显示状态（用于手动切换）
 watch(() => props.showProfitCurve, (show) => {
@@ -243,7 +252,6 @@ const createTradingViewChart = async (): Promise<void> => {
   if (!currentSymbol.value || !chartContainer.value) return
   // 创建图表配置
   const widgetOptions: any = createChartConfig(currentSymbol.value, currentPeriod.value, chartContainer.value)
-
   // 添加自定义指标支持
   widgetOptions.custom_indicators_getter = function (PineJS: any) {
     return Promise.resolve([
@@ -251,7 +259,7 @@ const createTradingViewChart = async (): Promise<void> => {
         // 内部名称，必须唯一
         name: '20-Day-High-Low', // 内部名称，必须唯一
         metainfo: {
-            _metainfoVersion: 51,
+          _metainfoVersion: 51,
           id: '20DayHighLow@tv-basicstudies-1',
           scriptIdPart: '20DayHighLow',
           name: '20日高低点', // 用户界面上显示的名称
@@ -292,7 +300,7 @@ const createTradingViewChart = async (): Promise<void> => {
               title: 'low points',
             }
           },
-            format: {
+          format: {
             type: 'price',
             precision: 4,
           },
@@ -375,7 +383,11 @@ const createTradingViewChart = async (): Promise<void> => {
           inputs: [
             { id: "in_1", name: "Symbol", type: "symbol", defval: "MY_EQUITY" }
           ],
-          plots: [{ id: "plot_0", type: "line" }, { id: "plot_1", type: "line" }],
+          plots: [
+            { id: "plot_0", type: "line" },
+            { id: "plot_1", type: "line" },
+            { id: "plot_ghost", type: "line" } // 新增：用于撑开空间的影子点
+          ],
           defaults: {
             styles: {
               plot_0: { linestyle: 0, linewidth: 2, plottype: 0, color: "#2196F3" },
@@ -384,6 +396,13 @@ const createTradingViewChart = async (): Promise<void> => {
                 linestyle: 0,
                 linewidth: 3,       // 控制圆点大小
                 color: "#ff5252"    // 可以设置不同的颜色以区分
+              },
+              plot_ghost: {
+                linestyle: 0,
+                linewidth: 0,
+                plottype: 0, // 0 = Line
+                visible: true,
+                color: "rgba(0,0,0,0)" // 关键：设置为完全透明
               }
             }
           },
@@ -393,6 +412,9 @@ const createTradingViewChart = async (): Promise<void> => {
             },
             plot_1: {
               title: 'Equity points',
+            },
+            plot_ghost: {
+              title: 'ghost',
             }
           },
           format: {
@@ -416,8 +438,11 @@ const createTradingViewChart = async (): Promise<void> => {
 
             context.select_sym(1);
 
+
             const equityValue = PineJS.Std.close(this._context);
-            return [equityValue, equityValue];
+
+            const ghostValue = equityValue * 1.1;
+            return [equityValue, equityValue, ghostValue];
           };
         }
       }
@@ -510,6 +535,48 @@ const addProfitCurveStudy = async () => {
     if (studyId) {
       profitCurveStudy.value = studyId
       console.log('收益曲线指标创建成功，ID:', studyId)
+
+      //添加交易标记
+      let profit = 0;
+      let openTime = 0;
+
+      if (props.tradeHistoryData && props.tradeHistoryData.length > 0) {
+        props.tradeHistoryData.reverse().forEach(trade => {
+          if(trade.side.includes("open")){
+            openTime = trade.time;
+          }
+
+          if (trade.side.includes("close")) {
+            profit += trade.profit;
+            //添加shape标记
+          chart.createShape(
+              {
+                time: trade.time / 1000,
+                price: profit  // 这里的 price 会自动对应收益率指标的 Y 轴
+              },
+              {
+                shape: 'note',
+                text: `开仓时间: ${new Date(openTime).toLocaleString()}\n平仓时间: ${new Date(trade.time).toLocaleString()}\n方向: ${trade.side.includes("Long")?"多":"空"}\n收益:${trade.profit > 0 ? '+' : ''}${trade.profit.toFixed(2)}%`,
+                lock: true,
+                disableSelection: false,
+                ownerStudyId: studyId, // 核心：绑定到副图指标 ID
+                overrides: {
+                  markerColor: trade.profit > 0 ? '#4caf50' : '#f44336',
+
+                  // textColor: trade.profit > 0 ? '#4caf50' : '#f44336',
+                  // text:`平仓\n${trade.profit > 0 ? '+' : ''}${trade.profit.toFixed(2)}%`,
+                  fontsize: 11,
+                  showLabel: true,
+                }
+              }
+            );
+          }
+
+        })
+
+
+      }
+
     }
   } catch (error) {
     console.error('创建收益曲线指标失败:', error)
