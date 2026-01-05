@@ -81,6 +81,7 @@ export interface BacktestRecord {
   quantity: number
   realizedPnl: number
   profitRate: number
+  reason?: string
 }
 
 
@@ -118,4 +119,6 @@ export interface Monitor {
   pushEnabled: boolean
   remark?: string
   filter?: string[]
+  fromUsers?: string[]
+  dingdingId?: string | null
 }

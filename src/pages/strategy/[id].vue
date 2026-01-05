@@ -125,7 +125,7 @@
           <v-window v-model="activeTab">
             <v-window-item value="backtest">
               <BacktestContent :loading="backtestLoading" :error="backtestError" :data="backtestData"
-                :headers="backtestHeaders" :total-trades="backtestStats.totalTrades"
+                :headers="backtestHeaders" :profit-curve="profitCurveData" :total-trades="backtestStats.totalTrades"
                 :total-return="backtestStats.totalReturn" :win-rate="backtestStats.winRate"
                 :max-drawdown="backtestStats.maxDrawdown" @run-backtest="runBacktest" />
             </v-window-item>
@@ -230,6 +230,7 @@ const backtestHeaders = [
   { title: '数量', key: 'quantity', sortable: true, width: '100px' },
   { title: '已实现盈亏', key: 'realizedPnl', sortable: true, width: '120px' },
   { title: '收益率', key: 'profitRate', sortable: true, width: '100px' },
+  { title: '理由', key: 'reason', sortable: false, width: '200px' },
 ]
 
 

@@ -540,42 +540,42 @@ const addProfitCurveStudy = async () => {
       let profit = 0;
       let openTime = 0;
 
-      if (props.tradeHistoryData && props.tradeHistoryData.length > 0) {
-        props.tradeHistoryData.reverse().forEach(trade => {
-          if(trade.side.includes("open")){
-            openTime = trade.time;
-          }
+      // if (props.tradeHistoryData && props.tradeHistoryData.length > 0) {
+      //   props.tradeHistoryData.reverse().forEach(trade => {
+      //     if(trade.side.includes("open")){
+      //       openTime = trade.time;
+      //     }
 
-          if (trade.side.includes("close")) {
-            profit += trade.profit;
-            //添加shape标记
-          chart.createShape(
-              {
-                time: trade.time / 1000,
-                price: profit  // 这里的 price 会自动对应收益率指标的 Y 轴
-              },
-              {
-                shape: 'note',
-                text: `开仓时间: ${new Date(openTime).toLocaleString()}\n平仓时间: ${new Date(trade.time).toLocaleString()}\n方向: ${trade.side.includes("Long")?"多":"空"}\n收益:${trade.profit > 0 ? '+' : ''}${trade.profit.toFixed(2)}%`,
-                lock: true,
-                disableSelection: false,
-                ownerStudyId: studyId, // 核心：绑定到副图指标 ID
-                overrides: {
-                  markerColor: trade.profit > 0 ? '#4caf50' : '#f44336',
+      //     if (trade.side.includes("close")) {
+      //       profit += trade.profit;
+      //       //添加shape标记
+      //     chart.createShape(
+      //         {
+      //           time: trade.time / 1000,
+      //           price: profit  // 这里的 price 会自动对应收益率指标的 Y 轴
+      //         },
+      //         {
+      //           shape: 'note',
+      //           text: `开仓时间: ${new Date(openTime).toLocaleString()}\n平仓时间: ${new Date(trade.time).toLocaleString()}\n方向: ${trade.side.includes("Long")?"多":"空"}\n收益:${trade.profit > 0 ? '+' : ''}${trade.profit.toFixed(2)}%`,
+      //           lock: true,
+      //           disableSelection: false,
+      //           ownerStudyId: studyId, // 核心：绑定到副图指标 ID
+      //           overrides: {
+      //             markerColor: trade.profit > 0 ? '#4caf50' : '#f44336',
 
-                  // textColor: trade.profit > 0 ? '#4caf50' : '#f44336',
-                  // text:`平仓\n${trade.profit > 0 ? '+' : ''}${trade.profit.toFixed(2)}%`,
-                  fontsize: 11,
-                  showLabel: true,
-                }
-              }
-            );
-          }
+      //             // textColor: trade.profit > 0 ? '#4caf50' : '#f44336',
+      //             // text:`平仓\n${trade.profit > 0 ? '+' : ''}${trade.profit.toFixed(2)}%`,
+      //             fontsize: 11,
+      //             showLabel: true,
+      //           }
+      //         }
+      //       );
+      //     }
 
-        })
+      //   })
 
 
-      }
+      // }
 
     }
   } catch (error) {

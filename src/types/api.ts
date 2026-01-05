@@ -62,3 +62,15 @@ export interface CreateMonitorDto {
 }
 
 export interface UpdateMonitorDto extends Partial<CreateMonitorDto> { }
+
+
+
+
+export interface DingDingConfig {
+  dingdingId: string
+  accessToken: string
+  secret: string
+  remark: string
+}
+
+

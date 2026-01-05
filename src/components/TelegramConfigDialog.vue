@@ -147,7 +147,7 @@ const loginWithCode = async () => {
 
 const deleteTelegramConfig = async () => {
   try {
-    const updateRes = await userStore.updateUserInfo({ telegram: undefined })
+    const updateRes = await userStore.updateUserInfo({ telegram: null as any })
     if (updateRes) {
       showSuccessMessage('已删除Telegram配置')
       show.value = false

@@ -89,8 +89,13 @@
                 </v-col>
                 <v-col cols="6" md="3">
                   <v-card variant="outlined" class="pa-3 text-center">
-                    <div class="text-h6 font-weight-bold" :class="getPnlClass(totalReturn || 0)">
-                      {{ formatPnl(totalReturn || 0) }} %
+                    <div class="d-flex align-center justify-center">
+                      <div class="text-h6 font-weight-bold" :class="getPnlClass(totalReturn || 0)">
+                        {{ formatPnl(totalReturn || 0) }} %
+                      </div>
+                      <v-btn icon size="small" class="ml-2" @click="showProfitCurve = true">
+                        <v-icon>mdi-chart-line-variant</v-icon>
+                      </v-btn>
                     </div>
                     <div class="text-caption text-medium-emphasis">总收益</div>
                   </v-card>
@@ -152,7 +157,29 @@
                   {{ formatProfitRate(item.profitRate) }}
                 </span>
               </template>
+              <template v-slot:item.reason="{ item }">
+                <span class="text-body-2" :title="item.reason">
+                  {{ item.reason || '-' }}
+                </span>
+              </template>
             </v-data-table>
+            <!-- 收益曲线弹窗 -->
+            <v-dialog v-model="showProfitCurve" max-width="900">
+              <v-card>
+                <v-card-title class="d-flex align-center justify-space-between">
+                  <div>收益曲线</div>
+                  <v-btn icon @click="showProfitCurve = false"><v-icon>mdi-close</v-icon></v-btn>
+                </v-card-title>
+                <v-card-text>
+                  <div class="profit-chart-container">
+                    <div style="height:320px;">
+                      <Line :data="chartData" :options="chartOptions" />
+                    </div>
+                    <div class="chart-legend text-caption text-medium-emphasis">数据点: {{ (props.profitCurve || []).length }}</div>
+                  </div>
+                </v-card-text>
+              </v-card>
+            </v-dialog>
           </v-card-text>
         </v-card>
       </v-col>
@@ -162,7 +189,21 @@
 
 <script lang="ts" setup>
 import type { BacktestParams, BacktestRecord } from '@/types/interface'
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
+import { Line } from 'vue-chartjs'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
 
 interface Props {
@@ -170,6 +211,7 @@ interface Props {
   error: string
   data: BacktestRecord[]
   headers: any[]
+  profitCurve?: Array<{ time: number; value: number }>
   // 回测统计信息
   totalTrades?: number
   totalReturn?: number
@@ -179,10 +221,41 @@ interface Props {
 
 
 
-defineProps<Props>()
+const props = defineProps<Props>()
 const emit = defineEmits<{
   runBacktest: [params: BacktestParams]
 }>()
+
+const showProfitCurve = ref(false)
+
+const chartData = computed(() => {
+  const data = props.profitCurve || []
+  const labels = data.map(d => {
+    try { return new Date(d.time).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) } catch { return String(d.time) }
+  })
+  const values = data.map(d => d.value)
+  return {
+    labels,
+    datasets: [
+      {
+        label: '收益',
+        data: values,
+        borderColor: getComputedStyle(document.documentElement).getPropertyValue('--v-theme-primary') || '#1976d2',
+        backgroundColor: 'rgba(25,118,210,0.08)',
+        fill: true,
+        tension: 0.2,
+        pointRadius: 2
+      }
+    ]
+  }
+})
+
+const chartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: { x: { display: true }, y: { display: true } }
+}
 
 // 回测参数表单
 const backtestForm = reactive<BacktestParams>({
@@ -322,5 +395,18 @@ const getProfitRateClass = (rate: number) => {
   .backtest-settings {
     margin-bottom: 16px;
   }
+}
+
+.profit-chart-container {
+  width: 100%;
+}
+.profit-chart-container .profit-svg {
+  width: 100%;
+  height: 300px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.01), transparent);
+  border-radius: 4px;
+}
+.chart-legend {
+  margin-top: 8px;
 }
 </style>

@@ -11,6 +11,7 @@ declare module 'vue' {
     AppSidebar: typeof import('./components/AppSidebar.vue')['default']
     BacktestContent: typeof import('./components/BacktestContent.vue')['default']
     Deposit: typeof import('./components/Deposit.vue')['default']
+    DingDingConfigDialog: typeof import('./components/DingDingConfigDialog.vue')['default']
     GlobalSnackbar: typeof import('./components/GlobalSnackbar.vue')['default']
     MonitorEditDialog: typeof import('./components/MonitorEditDialog.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

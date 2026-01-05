@@ -22,8 +22,8 @@
 
           <!-- 策略配置参数 - 动态生成 -->
           <div v-if="strategyForm.strategyType && configFieldGroups.length > 0" class="mb-3">
-            <v-row v-for="(group, groupIndex) in configFieldGroups" :key="groupIndex" class="mb-2">
-              <v-col v-for="[fieldKey, fieldConfig] in group" :key="fieldKey" cols="6">
+            <v-row v-for="(group, groupIndex) in configFieldGroups" :key="groupIndex" class="mb-0 mt-0">
+              <v-col v-for="[fieldKey, fieldConfig] in group" :key="fieldKey" :cols="group.length === 1 ? 12 : 6" :class="isBooleanGroup(group) ? 'compact-col' : ''">
                 <!-- 数字类型输入 -->
                 <v-text-field v-if="fieldConfig.type === 'number'" v-model.number="strategyForm.config[fieldKey]"
                   :label="fieldConfig.label" type="number" :min="fieldConfig.min" :max="fieldConfig.max"
@@ -39,17 +39,17 @@
                   :items="fieldConfig.options || []" item-title="label" item-value="value" :label="fieldConfig.label"
                   :required="fieldConfig.required" variant="outlined" :rules="getFieldRules(fieldConfig)" />
 
-                <!-- 布尔类型输入 -->
+                <!-- 布尔类型输入（紧凑） -->
                 <v-checkbox v-else-if="fieldConfig.type === 'boolean'" v-model="strategyForm.config[fieldKey]"
-                  :label="fieldConfig.label" :required="fieldConfig.required" />
+                  :label="fieldConfig.label" :required="fieldConfig.required" density="compact" hide-details="auto"  />
               </v-col>
             </v-row>
           </div>
 
           <v-textarea v-model="strategyForm.description" label="策略描述（可选）" variant="outlined" rows="3" class="mb-3" />
 
-          <!-- 开启运行选项 -->
-          <v-checkbox v-model="strategyForm.enableOnCreate" label="开启运行" color="primary" class="mb-3" />
+          <!-- 开启运行选项（紧凑） -->
+          <v-checkbox v-model="strategyForm.enableOnCreate" label="开启运行" color="primary" class="mb-3 " density="compact" hide-details="auto" />
         </v-form>
       </v-card-text>
 
@@ -134,15 +134,44 @@ const currentStrategyConfig = computed(() => {
   return currentStrategyInfo.value?.config || {}
 })
 
-// 计算属性 - 配置字段数组，每两个一组
+// 计算属性 - 配置字段数组：布尔字段单独一组，其它按两列一组
 const configFieldGroups = computed(() => {
   const fields = Object.entries(currentStrategyConfig.value)
-  const groups = []
-  for (let i = 0; i < fields.length; i += 2) {
-    groups.push(fields.slice(i, i + 2))
+  const groups: Array<Array<[string, any]>> = []
+
+  for (let i = 0; i < fields.length; ) {
+    const field = fields[i]
+    if (!field) {
+      i += 1
+      continue
+    }
+    const [key, cfg] = field
+
+    // 如果当前字段是布尔类型，单独成一行
+    if (cfg && cfg.type === 'boolean') {
+      groups.push([[key, cfg]])
+      i += 1
+      continue
+    }
+
+    // 否则尝试和下一个字段配对；如果下一个是布尔或不存在，则单独一列
+    const next = fields[i + 1]
+    if (next && next[1] && next[1].type !== 'boolean') {
+      groups.push([field, next])
+      i += 2
+    } else {
+      groups.push([[key, cfg]])
+      i += 1
+    }
   }
+
   return groups
 })
+
+// 判断组是否为纯布尔字段组
+const isBooleanGroup = (group: Array<[string, any]>) => {
+  return Array.isArray(group) && group.length > 0 && group.every(([, cfg]) => cfg && cfg.type === 'boolean')
+}
 
 // 表单验证规则
 const nameRules = [
@@ -306,3 +335,15 @@ watch(
   }
 )
 </script>
+
+<style scoped>
+
+.compact-row {
+  margin-bottom: 0px !important;
+  margin-top: 0px !important;
+}
+.compact-col {
+  padding-top: 0px !important;
+  padding-bottom: 0px !important;
+}
+</style>

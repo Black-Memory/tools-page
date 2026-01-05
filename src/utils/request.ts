@@ -1,6 +1,7 @@
 import type { ApiResponse } from '@/types/api'
 import { ErrorCode } from '@/constants/error-codes'
 import qs from 'qs'
+import axios from "axios";
 
 // 请求配置接口
 interface RequestConfig extends RequestInit {
@@ -31,76 +32,40 @@ class RequestUtil {
     this.timeout = timeout
   }
 
-  // 请求拦截器
-  private async beforeRequest(url: string, config: RequestConfig): Promise<[string, RequestConfig]> {
-    // 处理 URL
-    const fullURL = url.startsWith('http') ? url : `${this.baseURL}${url}`
-
-    // 设置默认 headers
-    const headers = new Headers(config.headers)
-    if (!headers.has('Content-Type')) {
-      headers.set('Content-Type', 'application/json')
-    }
-
-    const finalConfig: RequestConfig = {
-      ...config,
+  // 请求拦截器（axios专用配置）
+  private beforeRequest(url: string, config: RequestConfig): [string, any] {
+    const fullURL = url.startsWith('http') ? url : `${this.baseURL}${url}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...config.headers
+    };
+    const axiosConfig = {
+      url: fullURL,
       headers,
-      credentials: 'include', // 关键：允许携带 Cookie
-      signal: this.createAbortSignal(config.timeout || this.timeout)
-    }
-
-    return [fullURL, finalConfig]
+      timeout: config.timeout || this.timeout,
+      withCredentials: true, // 允许携带 Cookie
+      ...config
+    };
+    return [fullURL, axiosConfig];
   }
 
-  // 响应拦截器
-  private async afterResponse<T>(response: Response): Promise<ApiResponse<T>> {
-    const contentType = response.headers.get('content-type')
-
-    // 处理非 JSON 响应
-    if (!contentType || !contentType.includes('application/json')) {
-      if (!response.ok) {
-        throw new ApiError(
-          response.status,
-          `HTTP ${response.status}: ${response.statusText}`,
-          response
-        )
-      }
-      // 对于非 JSON 响应，包装成 ApiResponse 格式
-      const text = await response.text()
-      return {
-        code: ErrorCode.SUCCESS,
-        message: '请求成功',
-        data: text as unknown as T
-      }
-    }
-
-    // 解析 JSON 响应
-    const result: ApiResponse<T> = await response.json()
-
-    // 根据业务状态码判断
+  // 响应拦截器（axios专用）
+  private async afterResponse<T>(response: any): Promise<ApiResponse<T>> {
+    const result: ApiResponse<T> = response.data;
     if (result.code !== ErrorCode.SUCCESS) {
-      // 处理认证失败 - 只需要跳转，Cookie 由后台清理
       if (result.code === ErrorCode.UNAUTHORIZED) {
-        // 重定向到登录页（如果不在登录页的话）
         if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
+          window.location.href = '/login';
         }
       }
-
-      throw new ApiError(result.code, result.message, response)
+      throw new ApiError(result.code, result.message);
     }
-
-    return result
+    return result;
   }
 
-  // 创建超时控制器
-  private createAbortSignal(timeout: number): AbortSignal {
-    const controller = new AbortController()
-    setTimeout(() => controller.abort(), timeout)
-    return controller.signal
-  }
+  // axios已内置超时控制，无需AbortSignal
 
-  // 通用请求方法
+  // 通用请求方法（axios实现）
   private async request<T>(
     method: string,
     url: string,
@@ -108,33 +73,30 @@ class RequestUtil {
     config: RequestConfig = {}
   ): Promise<ApiResponse<T>> {
     try {
-      // 请求前处理
-      const [finalURL, finalConfig] = await this.beforeRequest(url, {
+      const [finalURL, axiosConfig] = this.beforeRequest(url, config);
+      const reqConfig = {
+        ...axiosConfig,
         method,
-        body: data ? JSON.stringify(data) : undefined,
-        ...config
-      })
-
-      // 发送请求
-      const response = await fetch(finalURL, finalConfig)
-
-      // 响应后处理
-      return await this.afterResponse<T>(response)
-
-    } catch (error) {
+        url: finalURL,
+        data: data ? data : undefined
+      };
+      const response = await axios(reqConfig);
+      return await this.afterResponse<T>(response);
+    } catch (error: any) {
       if (error instanceof ApiError) {
-        throw error
+        throw error;
       }
-
-      // 处理网络错误、超时等
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          throw new ApiError(0, '请求超时')
-        }
-        throw new ApiError(0, `网络错误: ${error.message}`)
+      // axios错误处理
+      if (error.response) {
+        // 响应错误
+        const result = error.response.data;
+        throw new ApiError(result?.code || error.response.status, result?.message || error.message);
+      } else if (error.code === 'ECONNABORTED') {
+        throw new ApiError(0, '请求超时');
+      } else if (error.message) {
+        throw new ApiError(0, `网络错误: ${error.message}`);
       }
-
-      throw new ApiError(0, '未知错误')
+      throw new ApiError(0, '未知错误');
     }
   }
 

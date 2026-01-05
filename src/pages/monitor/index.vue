@@ -12,6 +12,9 @@
             <v-btn color="primary" prepend-icon="mdi-plus" @click="createMonitor">
               创建监控
             </v-btn>
+            <v-btn color="warning" prepend-icon="mdi-bell" class="ml-2" @click="showDingDingConfig = true">
+              DingDing配置
+            </v-btn>
             <v-btn color="info" prepend-icon="mdi-telegram" class="ml-2" @click="showTelegramConfig = true">
               Telegram配置
             </v-btn>
@@ -72,7 +75,7 @@
     </v-card>
 
     <!-- 编辑/创建对话框 -->
-    <MonitorEditDialog v-model="showEditDialog" :monitor="editingMonitor" @save="handleSave"
+    <MonitorEditDialog v-model="showEditDialog" :monitor="editingMonitor" :dingding-configs="dingDingConfigs" @save="handleSave"
       @cancel="showEditDialog = false" />
 
     <!-- 删除确认对话框 -->
@@ -93,17 +96,23 @@
     <!-- 提示消息已全局化，无需本地snackbar -->
     <!-- Telegram配置弹窗 -->
     <TelegramConfigDialog v-model="showTelegramConfig" :telegram="userInfo?.telegram" />
+    <!-- DingDing配置弹窗 -->
+    <DingDingConfigDialog v-model="showDingDingConfig" />
   </div>
 </template>
 
 <script lang="ts" setup>
 import type { Monitor } from '@/types/interface'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { showErrorMessage, showSuccessMessage } from '@/composables/snackbar'
 import MonitorEditDialog from '@/components/MonitorEditDialog.vue'
 import TelegramConfigDialog from '@/components/TelegramConfigDialog.vue'
+import DingDingConfigDialog from '@/components/DingDingConfigDialog.vue'
 import { MonitorAPI } from '@/api/monitor'
 import { useUserStore } from '@/stores/user'
+import { UserAPI } from '@/api/user'
+import { useDingDingStore } from '@/stores/dingding'
 
 const monitors = ref<Monitor[]>([])
 const showEditDialog = ref(false)
@@ -114,9 +123,16 @@ const deletingMonitor = ref<Monitor | null>(null)
 // Telegram配置弹窗状态
 const showTelegramConfig = ref(false)
 
+// DingDing配置弹窗状态
+const showDingDingConfig = ref(false)
+
 // 用户信息
 const userStore = useUserStore()
 const userInfo = ref(userStore.userInfo)
+
+// DingDing 配置 store
+const dingdingStore = useDingDingStore()
+const { configs: dingDingConfigs } = storeToRefs(dingdingStore)
 
 
 
@@ -217,11 +233,23 @@ const toggleStatus = async (item: Monitor) => {
 
 onMounted(async () => {
   loadMonitors()
+  // 加载钉钉配置用于创建/编辑监控时选择
+  try {
+    await dingdingStore.fetchConfigs()
+  } catch (e) {
+    console.error('加载钉钉配置异常', e)
+  }
+  // 监听钉钉配置变更事件，刷新监控列表
+  window.addEventListener('dingding:configs-updated', loadMonitors)
   // 获取用户信息（优先本地，否则请求）
   // if (!userStore.userInfo) {
   await userStore.fetchUserInfo()
   // }
   userInfo.value = userStore.userInfo
+})
+
+onUnmounted(() => {
+  window.removeEventListener('dingding:configs-updated', loadMonitors)
 })
 </script>
 

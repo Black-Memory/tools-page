@@ -1,5 +1,5 @@
 import request from '@/utils/request';
-import type { LoginRequest, LoginResponse, ApiResponse, UserInfo, UpdateUserInfoRequest } from '@/types/api';
+import type { LoginRequest, LoginResponse, ApiResponse, UserInfo, UpdateUserInfoRequest, DingDingConfig } from '@/types/api';
 
 export class UserAPI {
   // 获取用户信息
@@ -13,4 +13,16 @@ export class UserAPI {
   }
 
 
+  static async getDingDingConfigs(): Promise<ApiResponse<DingDingConfig[]>> {
+    return request.get<DingDingConfig[]>('/user/dingding');
+  }
+
+
+  static async deleteDingDingConfig(id: string): Promise<ApiResponse<null>> {
+    return request.delete<null>(`/user/dingding/${id}`);
+  }
+
+  static async createDingDingConfig(data: Partial<DingDingConfig>): Promise<ApiResponse<DingDingConfig>> {
+    return request.post<DingDingConfig>('/user/dingding', data);
+  }
 }
