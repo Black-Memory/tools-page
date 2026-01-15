@@ -48,6 +48,15 @@
 
           <v-textarea v-model="strategyForm.description" label="策略描述（可选）" variant="outlined" rows="3" class="mb-3" />
 
+          <v-text-field v-model.number="strategyForm.initBalance" label="初始资金" type="number"
+            :rules="initBalanceRules" variant="outlined" class="mb-3" />
+
+          <v-select v-model="strategyForm.openPositionType" :items="openPositionTypeOptions" item-title="label"
+            item-value="value" label="开仓类型" variant="outlined" class="mb-3" />
+
+          <v-text-field v-model.number="strategyForm.onceTradeAmount" label="每次交易金额/数量" type="number"
+            :rules="onceTradeAmountRules" variant="outlined" class="mb-3" />
+
           <!-- 开启运行选项（紧凑） -->
           <v-checkbox v-model="strategyForm.enableOnCreate" label="开启运行" color="primary" class="mb-3 " density="compact" hide-details="auto" />
         </v-form>
@@ -106,6 +115,9 @@ const strategyForm = ref<{
   description: string
   config: Record<string, any>
   enableOnCreate: boolean
+  initBalance: number
+  openPositionType: 'fixed_amount' | 'fixed_count'
+  onceTradeAmount: number
 }>({
   name: '',
   symbol: [],
@@ -113,7 +125,10 @@ const strategyForm = ref<{
   strategyType: '',
   description: '',
   config: {},
-  enableOnCreate: true
+  enableOnCreate: true,
+  initBalance: 100000,
+  openPositionType: 'fixed_amount',
+  onceTradeAmount: 10000
 })
 
 // 计算属性 - 策略类型选项
@@ -228,6 +243,22 @@ const getFieldRules = (fieldConfig: any) => {
   return rules
 }
 
+// 新字段的规则与选项
+const initBalanceRules = [
+  (v: number) => v !== undefined && v !== null || '初始资金不能为空',
+  (v: number) => v > 0 || '初始资金需大于0'
+]
+
+const onceTradeAmountRules = [
+  (v: number) => v !== undefined && v !== null || '每次交易金额/数量不能为空',
+  (v: number) => v > 0 || '数值需大于0'
+]
+
+const openPositionTypeOptions = [
+  { label: '固定金额', value: 'fixed_amount' },
+  { label: '固定数量', value: 'fixed_count' }
+]
+
 // 处理保存
 const handleSave = async () => {
   if (!valid.value) return
@@ -239,6 +270,9 @@ const handleSave = async () => {
     strategyType: strategyForm.value.strategyType,
     description: strategyForm.value.description,
     config: { ...strategyForm.value.config },
+    initBalance: strategyForm.value.initBalance,
+    openPositionType: strategyForm.value.openPositionType,
+    onceTradeAmount: strategyForm.value.onceTradeAmount,
     enableOnCreate: strategyForm.value.enableOnCreate
   }
 
@@ -261,6 +295,9 @@ const resetForm = () => {
     description: '',
     config: {},
     enableOnCreate: true
+    ,initBalance: 100000,
+    openPositionType: 'fixed_amount',
+    onceTradeAmount: 10000
   }
   if (form.value) {
     form.value.reset()
@@ -278,7 +315,10 @@ const initForm = (strategy?: Strategy | null) => {
       strategyType: strategy.strategyType,
       description: strategy.description || '',
       config: { ...strategy.strategyConfig },
-      enableOnCreate: strategy.status === 'running'
+      enableOnCreate: strategy.status === 'running',
+      initBalance: (strategy as any).initBalance ?? 100000,
+      openPositionType: (strategy as any).openPositionType ?? 'fixed_amount',
+      onceTradeAmount: (strategy as any).onceTradeAmount ?? 10000
     }
   } else {
     resetForm()

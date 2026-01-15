@@ -26,6 +26,14 @@ export interface Strategy {
     [key: string]: any
   }
   description?: string
+  /** 初始资金 */
+  initBalance: number
+
+  /** 开仓类型：固定金额或固定数量 */
+  openPositionType: 'fixed_amount' | 'fixed_count'
+
+  /** 每次交易金额/数量 */
+  onceTradeAmount: number
   // amount?: number
   status: 'stopped' | 'running'
   direction?: 'long' | 'short' | 'none'
@@ -67,7 +75,6 @@ export interface BacktestParams {
   strategyId: string, //策略ID
   fromTime: string  //开始时间
   toTime: string  //结束时间
-  amount: number  //回测金额
 }
 
 /**

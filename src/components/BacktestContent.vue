@@ -36,7 +36,7 @@
                 </v-col>
 
                 <!-- 固定开仓金额 -->
-                <v-col cols="12">
+                <!-- <v-col cols="12">
                   <v-text-field
                     v-model.number="backtestForm.amount"
                     type="number"
@@ -48,7 +48,7 @@
                     min="0"
                     step="100"
                   />
-                </v-col>
+                </v-col> -->
 
                 <!-- 开始回测按钮 -->
                 <v-col cols="12" class="mt-4">
@@ -262,14 +262,12 @@ const backtestForm = reactive<BacktestParams>({
   strategyId: '',
   fromTime: '',
   toTime: '',
-  amount: 10000
 })
 
 // 表单验证
 const isFormValid = computed(() => {
   return backtestForm.fromTime &&
          backtestForm.toTime &&
-         backtestForm.amount > 0 &&
          new Date(backtestForm.fromTime) < new Date(backtestForm.toTime)
 })
 

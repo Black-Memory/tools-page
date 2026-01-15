@@ -31,7 +31,7 @@
           <v-combobox
             v-if="formData.source === 'Telegram'"
             v-model="formData.filter"
-            label="过滤关键词（可多个）"
+            label="筛选关键词（可多个）"
             multiple
             chips
             clearable

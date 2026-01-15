@@ -1,10 +1,5 @@
 <template>
-  <v-card
-    :class="cardClass"
-    class="strategy-card"
-    elevation="3"
-    hover
-  >
+  <v-card :class="cardClass" class="strategy-card" elevation="3" hover>
     <!-- 策略头部 -->
     <v-card-title class="pb-2">
       <div class="d-flex justify-space-between align-center w-100">
@@ -14,13 +9,7 @@
         <div class="strategy-actions">
           <v-menu>
             <template v-slot:activator="{ props }">
-              <v-btn
-                icon="mdi-dots-vertical"
-                size="small"
-                color="white"
-                variant="text"
-                v-bind="props"
-              />
+              <v-btn icon="mdi-dots-vertical" size="small" color="white" variant="text" v-bind="props" />
             </template>
             <v-list>
               <v-list-item @click="$emit('edit', strategy)">
@@ -45,36 +34,23 @@
     <v-card-text class="text-white">
       <!-- 策略类型指示器 -->
       <div class="strategy-type-indicator mb-3">
-        <v-chip
-          color="info"
-          variant="elevated"
-          class="font-weight-bold mr-2"
-        >
+        <v-chip color="info" variant="elevated" class="font-weight-bold mr-2">
           <v-icon start>mdi-chart-line</v-icon>
           {{ getStrategyTypeLabel(strategy.strategyType) }}
         </v-chip>
-        <v-chip
-          color="white"
-          variant="outlined"
-          size="small"
-          class="mr-2 text-white font-weight-bold"
-        >
+        <v-chip color="white" variant="outlined" size="small" class="mr-2 text-white font-weight-bold">
           {{ strategy.period }}
         </v-chip>
         <!-- 运行时方向指示器 -->
-        <v-chip
-          v-if="strategy.status === 'running' && strategy.direction && strategy.direction !== 'none'"
-          :color="strategy.direction === 'long' ? 'success' : 'error'"
-          variant="elevated"
-          size="small"
-          class="font-weight-bold"
-        >
+        <v-chip v-if="strategy.status === 'running' && strategy.direction && strategy.direction !== 'none'"
+          :color="strategy.direction === 'long' ? 'success' : 'error'" variant="elevated" size="small"
+          class="font-weight-bold">
           <v-icon start size="14">
             {{ strategy.direction === 'long' ? 'mdi-trending-up' : 'mdi-trending-down' }}
           </v-icon>
           {{ strategy.direction === 'long' ? '做多' : '做空' }}
         </v-chip>
-      </div>      <!-- 交易信息 -->
+      </div> <!-- 交易信息 -->
       <div class="trading-info mb-3">
         <div class="d-flex justify-space-between align-center mb-2">
           <span class="text-body-2 text-white-lighten-3">交易对:</span>
@@ -101,11 +77,7 @@
 
       <!-- 状态指示器 -->
       <div class="status-indicator mb-3">
-        <v-chip
-          :color="getStatusColor(strategy.status)"
-          size="small"
-          variant="elevated"
-        >
+        <v-chip :color="getStatusColor(strategy.status)" size="small" variant="elevated">
           <v-icon start size="14">
             {{ getStatusIcon(strategy.status) }}
           </v-icon>
@@ -130,24 +102,14 @@
 
     <!-- 操作按钮 -->
     <v-card-actions class="pt-0">
-      <v-btn
-        :color="getActionButtonColor(strategy.status)"
-        variant="elevated"
-        size="small"
-        @click="toggleStatus"
-      >
+      <v-btn :color="getActionButtonColor(strategy.status)" variant="elevated" size="small" @click="toggleStatus">
         <v-icon start>
           {{ getActionButtonIcon(strategy.status) }}
         </v-icon>
         {{ getActionButtonText(strategy.status) }}
       </v-btn>
       <v-spacer />
-      <v-btn
-        color="white"
-        variant="outlined"
-        size="small"
-        @click.stop="viewDetails"
-      >
+      <v-btn color="white" variant="outlined" size="small" @click.stop="viewDetails">
         详情
       </v-btn>
     </v-card-actions>
@@ -231,7 +193,7 @@ const getConfigDisplay = (strategy: Strategy) => {
       const displayParts: string[] = []
       Object.entries(strategyInfo.config).forEach(([key, fieldConfig]) => {
         const value = config[key]
-        if (value !== undefined && value !== null) {
+        if (value !== undefined && value !== null && value !== '') {
           displayParts.push(`${fieldConfig.label}:${value}`)
         }
       })
@@ -338,7 +300,7 @@ const viewDetails = () => {
 
 .strategy-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
 }
 
 /* 运行中策略 - 多头（绿色背景）*/

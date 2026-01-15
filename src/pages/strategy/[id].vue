@@ -170,6 +170,7 @@ import { StrategyAPI } from '@/api/strategy'
 import BacktestContent from '@/components/BacktestContent.vue'
 import TradingViewChart from '@/components/TradingViewChart.vue'
 import StrategyEditDialog from '@/components/StrategyEditDialog.vue'
+import type { UpdateStrategyRequest } from '@/types/api'
 
 // 路由相关
 const router = useRouter()
@@ -484,13 +485,17 @@ const handleStrategySave = async (formData: any) => {
   if (!strategy.value) return
 
   try {
-    const updateData = {
+    const updateData: UpdateStrategyRequest = {
       name: formData.name,
       symbol: formData.symbol,
       period: formData.period,
       strategyType: formData.strategyType,
       strategyConfig: { ...formData.config },
       description: formData.description,
+      initBalance: formData.initBalance,
+      openPositionType: formData.openPositionType,
+      onceTradeAmount: formData.onceTradeAmount,
+      status: formData.enableOnCreate ? 'running' : 'stopped'
     }
 
     const response = await StrategyAPI.updateStrategy(strategy.value.id, updateData)

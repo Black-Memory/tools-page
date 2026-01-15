@@ -75,8 +75,8 @@
     </v-card>
 
     <!-- 编辑/创建对话框 -->
-    <MonitorEditDialog v-model="showEditDialog" :monitor="editingMonitor" :dingding-configs="dingDingConfigs" @save="handleSave"
-      @cancel="showEditDialog = false" />
+    <MonitorEditDialog v-model="showEditDialog" :monitor="editingMonitor" :dingding-configs="dingDingConfigs"
+      @save="handleSave" @cancel="showEditDialog = false" />
 
     <!-- 删除确认对话框 -->
     <v-dialog v-model="showDeleteDialog" max-width="400">
@@ -184,9 +184,9 @@ const handleSave = async (data: any) => {
         showErrorMessage(res.message || '创建监控失败')
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('保存监控异常:', error)
-    showErrorMessage('网络错误，操作失败')
+    showErrorMessage(error?.message || '网络错误，操作失败')
   }
 }
 
@@ -206,9 +206,9 @@ const confirmDelete = async () => {
     } else {
       showErrorMessage(res.message || '删除监控失败')
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('删除监控异常:', error)
-    showErrorMessage('网络错误，操作失败')
+    showErrorMessage(error?.message || '网络错误，操作失败')
   } finally {
     showDeleteDialog.value = false
     deletingMonitor.value = null
@@ -225,9 +225,10 @@ const toggleStatus = async (item: Monitor) => {
     } else {
       showErrorMessage(res.message || '更新状态失败')
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('更新状态异常:', error)
-    showErrorMessage('网络错误，操作失败')
+    showErrorMessage(error?.message || '网络错误，操作失败')
+
   }
 }
 

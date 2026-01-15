@@ -59,6 +59,7 @@ export interface CreateMonitorDto {
   source: string
   pushEnabled?: boolean
   remark?: string
+  dingdingId?: string|null
 }
 
 export interface UpdateMonitorDto extends Partial<CreateMonitorDto> { }

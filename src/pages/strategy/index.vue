@@ -103,7 +103,7 @@ import type { Strategy, StrategyInfo } from '@/types/interface'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { showErrorMessage, showSuccessMessage } from '@/composables/snackbar'
 import { StrategyAPI } from '@/api/strategy'
-import type { CreateStrategyRequest } from '@/types/api'
+import type { CreateStrategyRequest, UpdateStrategyRequest } from '@/types/api'
 import { socketService } from '@/utils/socket'
 import { useUserStore } from '@/stores/user'
 import StrategyEditDialog from '@/components/StrategyEditDialog.vue'
@@ -274,13 +274,17 @@ const handleStrategySave = async (formData: any) => {
   try {
     if (editingStrategy.value) {
       // 编辑现有策略
-      const updateData = {
+      const updateData: UpdateStrategyRequest = {
         name: formData.name,
         symbol: formData.symbol,
         period: formData.period,
+        initBalance: formData.initBalance,
+        openPositionType: formData.openPositionType,
+        onceTradeAmount: formData.onceTradeAmount,
         strategyType: formData.strategyType,
         strategyConfig: { ...formData.config },
         description: formData.description,
+        status: formData.enableOnCreate ? 'running' : 'stopped'
       }
 
       const response = await StrategyAPI.updateStrategy(editingStrategy.value.id, updateData)
@@ -303,6 +307,9 @@ const handleStrategySave = async (formData: any) => {
         strategyType: formData.strategyType,
         strategyConfig: { ...formData.config },
         description: formData.description,
+        initBalance: formData.initBalance,
+        openPositionType: formData.openPositionType,
+        onceTradeAmount: formData.onceTradeAmount,
         status: formData.enableOnCreate ? 'running' : 'stopped',
         direction: 'none',
       }
