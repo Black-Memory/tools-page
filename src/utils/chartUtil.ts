@@ -59,16 +59,19 @@ export class CustomDatafeed {
       description: symbolName,
       type: 'crypto',
       session: '24x7',
+      // has_empty_bars: true,
       timezone: 'Asia/Shanghai',
       ticker: symbolName,
-      exchange: 'BINANCE',
+      exchange: 'Tools',
       minmov: 1,
+      minmove2: 0,
       pricescale: 100,
       has_intraday: true,
       supported_resolutions: ['1', '5', '15', '30', '60', '240', '1D', '1W', '1M'],
       volume_precision: 2,
       data_status: 'streaming',
-      format: 'price'
+      // format: 'price'
+      // debug: true,
     }
 
     setTimeout(() => onSymbolResolvedCallback(symbolStub), 0)
@@ -85,6 +88,7 @@ export class CustomDatafeed {
 
   // 记录已加载的最早K线时间
   oldestBarTime: number | null = null
+  oldResolution: string | null = null
 
   async getBars(
     symbolInfo: any,
@@ -137,12 +141,27 @@ export class CustomDatafeed {
       }
     }
 
+    // console.log(`[TV-Debug] getBars Called:
+    //     Symbol: ${symbolInfo.name},
+    //     Resolution: ${resolution},
+    //     From: ${new Date(periodParams.from * 1000).toLocaleString()},
+    //     To: ${new Date(periodParams.to * 1000).toLocaleString()},
+    //     firstDataRequest: ${periodParams.firstDataRequest}`);
+
     try {
+      // if (this.oldestBarTime) {
+      //   setTimeout(() => onResult([], { noData: true }), 0)
+      //   return
+      // }
+      if(this.oldResolution !== resolution){
+        this.oldestBarTime = null
+        this.oldResolution = resolution
+      }
+
       // 调用真实API获取K线数据
       const mappedPeriod = this.mapResolutionToPeriod(resolution)
-
+      // let count = Math.min(1000, periodParams.countBack || 1000);
       // console.log(` 时间范围: ${new Date(periodParams.from * 1000).toLocaleString()} - ${new Date(periodParams.to * 1000).toLocaleString()} 数量:${periodParams.countBack}`);
-
       const response = await StrategyAPI.getKline({
         symbol: symbolInfo.name,
         period: mappedPeriod,
@@ -150,14 +169,19 @@ export class CustomDatafeed {
         limit: 1000
       })
 
-      if (response.code === 0 && response.data && response.data.length > 0) {
+      if (response.code === 0 && response.data) {
         const bar = response.data;
-        this.oldestBarTime = bar[0].time
+        if (bar.length > 0)
+          this.oldestBarTime = bar[0].time-1; // 更新已加载的最早K线时间
         // 过滤时间范围内的数据并转换格式
         const historyMetadata = {
-          noData: bar.length === 0
+          noData: bar.length == 0
         }
         setTimeout(() => onResult(bar, historyMetadata), 0)
+        return
+      }else{
+        console.error("K线数据获取失败:", response.message);
+        setTimeout(() => onResult([], { noData: true }), 0)
         return
       }
 

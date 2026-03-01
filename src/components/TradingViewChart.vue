@@ -257,14 +257,14 @@ const createTradingViewChart = async (): Promise<void> => {
     return Promise.resolve([
       {
         // 内部名称，必须唯一
-        name: '20-Day-High-Low', // 内部名称，必须唯一
+        name: 'Day-High-Low', // 内部名称，必须唯一
         metainfo: {
           _metainfoVersion: 51,
-          id: '20DayHighLow@tv-basicstudies-1',
-          scriptIdPart: '20DayHighLow',
-          name: '20日高低点', // 用户界面上显示的名称
-          description: '最近20日的高点和低点',
-          shortDescription: '20日高低点',
+          id: 'DayHighLow@tv-basicstudies-1',
+          scriptIdPart: 'DayHighLow',
+          name: 'hhv/llv', // 用户界面上显示的名称
+          description: 'hhv/llv',
+          shortDescription: 'hhv/llv',
           // 确保显示在主图上
           is_price_study: true,
           isCustomIndicator: true,
@@ -281,15 +281,18 @@ const createTradingViewChart = async (): Promise<void> => {
                 linewidth: 2,
                 plottype: 2, // 2代表Line Plot
                 trackPrice: true,
-                title: '20日高点'
+                title: '高点'
               },
               plot_low: {
                 color: '#F44336', // 低点颜色：红色
                 linewidth: 2,
                 plottype: 2,
                 trackPrice: true,
-                title: '20日低点'
+                title: '低点'
               }
+            },
+            inputs: {
+              period: 20
             }
           },
           styles: {
@@ -321,20 +324,13 @@ const createTradingViewChart = async (): Promise<void> => {
           this.init = function (context: any, inputCallback: any) {
             this._context = context;
             this._input = inputCallback;
-            // 重新定义输入参数，如果之前未定义
-            // if (!this._input.get('length')) {
-            //   this._input.add('length', { type: 'integer', defval: 20, min: 1 });
-            // }
-
-
           };
 
           this.main = function (context: any, inputCallback: any) {
             this._context = context;
             this._input = inputCallback;
-
             // 1. 获取输入参数 (周期长度)
-            const length = 20; // 默认20日
+            const length = this._input(0)||20; // 默认20日
 
             // 2. 获取当前 K 线的数值 (使用您库中有效的 PineJS.Std 方法)
             const currentHighValue = PineJS.Std.high(this._context);
